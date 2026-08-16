@@ -69,10 +69,10 @@ public class SslCommerzService : ISslCommerzService
 
         var tranId = $"OT_{orderId}_{DateTimeOffset.UtcNow.ToUnixTimeSeconds()}";
         
-        // Base callback URL
-        var callbackBase = !string.IsNullOrEmpty(customCallbackBaseUrl)
+        // Base callback URL (must be public)
+        var callbackBase = (!string.IsNullOrEmpty(customCallbackBaseUrl) && !customCallbackBaseUrl.Contains("127.0.0.1") && !customCallbackBaseUrl.Contains("localhost"))
             ? customCallbackBaseUrl.TrimEnd('/')
-            : (_configuration["FrontendUrl"]?.Replace("/web", "") ?? "http://104.248.232.169");
+            : (_configuration["PublicBaseUrl"] ?? _configuration["FrontendUrl"]?.Replace("/web", "") ?? "http://104.248.232.169");
 
         var postData = new Dictionary<string, string>
         {

@@ -117,20 +117,89 @@ export default function CartDrawer({
     }
   };
 
-  const completeCheckout = () => {
-    const paid = payable;
-    const count = items.reduce((sum, item) => sum + item.qty, 0);
-    addBooking({
-      id: `bk-${Date.now()}`,
-      items: items.map((item) => ({ ...item })),
-      total: paid,
-      payment,
-      createdAt: new Date().toISOString(),
-    });
-    setPaidAmount(paid);
-    setPaidCount(count);
-    setConfirmed(true);
-    clearCart();
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [orderError, setOrderError] = useState('');
+
+  const completeCheckout = async () => {
+    if (items.length === 0) return;
+    setIsProcessing(true);
+    setOrderError('');
+
+    try {
+      const token = typeof window !== 'undefined' ? localStorage.getItem('accessToken') : null;
+      const firstItem = items[0];
+      const serviceIdNum = parseInt(firstItem.id, 10) || 1;
+
+      // 1. Create real order in backend
+      const orderPayload = {
+        serviceId: serviceIdNum,
+        priceId: 0,
+        serviceDate: firstItem.date ? new Date(firstItem.date).toISOString() : new Date().toISOString(),
+        time: firstItem.time || '10:00 AM - 12:00 PM',
+        shippingAddress: userAddress || 'Dhaka, Bangladesh',
+        paymentType: payment === 'online' ? 'sslcommerz' : 'cod',
+        couponCode: promoApplied ? PROMO_CODE : null,
+        orderFrom: 'web'
+      };
+
+      const orderRes = await fetch('/api/v1/orders', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {})
+        },
+        body: JSON.stringify(orderPayload)
+      });
+
+      const orderData = await orderRes.json();
+
+      if (!orderRes.ok || !orderData?.orderId) {
+        throw new Error(orderData?.message || 'Failed to place order.');
+      }
+
+      // 2. If online payment -> initiate SSLCommerz gateway & redirect
+      if (payment === 'online') {
+        const sslRes = await fetch('/api/v1/sslcommerz/initiate', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            ...(token ? { Authorization: `Bearer ${token}` } : {})
+          },
+          body: JSON.stringify({ orderId: orderData.orderId })
+        });
+
+        const sslData = await sslRes.json();
+        if (sslData?.success && sslData?.gatewayPageUrl) {
+          clearCart();
+          window.location.href = sslData.gatewayPageUrl;
+          return;
+        } else {
+          throw new Error(sslData?.message || 'Failed to initialize SSLCommerz payment.');
+        }
+      }
+
+      // 3. If Cash on Delivery (COD) -> complete checkout
+      const paid = payable;
+      const count = items.reduce((sum, item) => sum + item.qty, 0);
+      addBooking({
+        id: orderData.orderId.toString(),
+        trackingCode: orderData.trackingCode,
+        items: items.map((item) => ({ ...item })),
+        total: paid,
+        payment: 'cod',
+        paymentStatus: 'unpaid',
+        deliveryStatus: 'pending',
+        createdAt: new Date().toISOString(),
+      });
+      setPaidAmount(paid);
+      setPaidCount(count);
+      setConfirmed(true);
+      clearCart();
+    } catch (err: any) {
+      setOrderError(err?.message || 'Failed to process order. Please try again.');
+    } finally {
+      setIsProcessing(false);
+    }
   };
 
   const handleConfirm = () => {
@@ -508,12 +577,20 @@ export default function CartDrawer({
 
             {/* Confirm Payment */}
             <div className="shrink-0 border-t p-4">
+              {orderError && (
+                <p className="mb-2 text-center text-xs font-semibold text-destructive">
+                  {orderError}
+                </p>
+              )}
               <Button
                 size="lg"
-                className="w-full rounded-xl bg-primary hover:bg-primary/90"
+                disabled={isProcessing}
+                className="w-full rounded-xl bg-primary hover:bg-primary/90 disabled:opacity-50"
                 onClick={handleConfirm}
               >
-                Confirm Payment · ৳{payable.toLocaleString()}
+                {isProcessing
+                  ? 'Processing Order...'
+                  : `Confirm Payment · ৳${payable.toLocaleString()}`}
               </Button>
             </div>
           </>
