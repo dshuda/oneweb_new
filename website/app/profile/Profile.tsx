@@ -147,6 +147,9 @@ export default function Profile() {
     saveUserProfile(next);
     setProfile(next);
     setDraft(next);
+    if (user) {
+      saveAuthUser({ ...user, name: next.name || undefined });
+    }
     setSavedFlash(true);
     window.setTimeout(() => setSavedFlash(false), 2000);
   };
@@ -189,7 +192,7 @@ export default function Profile() {
   }
 
   const isDemo = user.phone === DEMO_PHONE;
-  const displayName = profile.name || user.name || 'OneTap User';
+  const displayName = profile.name || user.name || (user.phone ? formatPhone(user.phone) : 'OneTap User');
   const totalSpend = bookings.reduce((sum, b) => sum + b.total, 0);
   const totalServices = bookings.reduce(
     (sum, b) => sum + b.items.reduce((s, i) => s + i.qty, 0),
