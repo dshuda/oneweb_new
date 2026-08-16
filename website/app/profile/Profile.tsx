@@ -271,7 +271,7 @@ export default function Profile() {
     const token = typeof window !== 'undefined' ? localStorage.getItem('accessToken') : null;
     if (token) {
       try {
-        await fetch('/api/v1/auth/profile', {
+        const res = await fetch('/api/v1/auth/profile', {
           method: 'PUT',
           headers: {
             'Content-Type': 'application/json',
@@ -279,8 +279,15 @@ export default function Profile() {
           },
           body: JSON.stringify({ name: next.name, address: next.address })
         });
+        const data = await res.json().catch(() => null);
+        if (data && data.name) {
+          saveUserProfile({ name: data.name, address: data.address || '' });
+          if (user) {
+            saveAuthUser({ ...user, name: data.name });
+          }
+        }
       } catch (e) {
-        // Fallback to local persistence
+        console.error('Failed to sync profile to server', e);
       }
     }
 

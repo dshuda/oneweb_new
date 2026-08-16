@@ -58,12 +58,32 @@ public class AuthController : ControllerBase
         });
     }
 
+    private long ExtractUserId()
+    {
+        var val = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value
+            ?? User.FindFirst("nameid")?.Value
+            ?? User.FindFirst("sub")?.Value
+            ?? User.FindFirst("id")?.Value;
+
+        if (long.TryParse(val, out var id) && id > 0)
+            return id;
+
+        var phone = User.FindFirst("phone")?.Value;
+        if (!string.IsNullOrEmpty(phone))
+        {
+            var user = _dbContext.Users.FirstOrDefault(u => u.Phone == phone);
+            if (user != null) return user.Id;
+        }
+
+        return 0;
+    }
+
     [Authorize]
     [HttpGet("me")]
     public async Task<IActionResult> GetCurrentUser()
     {
-        var userIdClaim = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier);
-        if (userIdClaim == null || !long.TryParse(userIdClaim.Value, out var userId))
+        var userId = ExtractUserId();
+        if (userId <= 0)
             return Unauthorized(new { message = "Invalid user token" });
 
         var user = await Microsoft.EntityFrameworkCore.EntityFrameworkQueryableExtensions.FirstOrDefaultAsync(
@@ -87,8 +107,8 @@ public class AuthController : ControllerBase
     [HttpPut("profile")]
     public async Task<IActionResult> UpdateProfile([FromBody] UpdateProfileRequest request)
     {
-        var userIdClaim = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier);
-        if (userIdClaim == null || !long.TryParse(userIdClaim.Value, out var userId))
+        var userId = ExtractUserId();
+        if (userId <= 0)
             return Unauthorized(new { message = "Invalid user token" });
 
         var user = await Microsoft.EntityFrameworkCore.EntityFrameworkQueryableExtensions.FirstOrDefaultAsync(
