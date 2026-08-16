@@ -26,6 +26,12 @@ public class SendOtpCommandHandler : IRequestHandler<SendOtpCommand, SendOtpResu
             var otp = await _otpService.GenerateAndSaveOtpAsync(request.Phone);
             var smsSent = await _smsServices.SendAsync("88" + request.Phone, $"Your OneTap OTP is {otp}");
             
+            if (smsSent != null && smsSent.response_code != 202)
+            {
+                var error = !string.IsNullOrEmpty(smsSent.error_message) ? smsSent.error_message : $"Gateway error (Code: {smsSent.response_code})";
+                return new SendOtpResult(false, error);
+            }
+
             return new SendOtpResult(true, "OTP sent successfully");
         }
         catch (Exception ex)

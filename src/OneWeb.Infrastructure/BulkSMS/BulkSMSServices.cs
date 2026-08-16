@@ -8,13 +8,15 @@ namespace OneWeb.Infrastructure.Bulk
     public class BulkSMSServices : IBulkSMServices
     {
         private readonly BulkSMS _smsConfig;
+        private readonly IConfiguration _config;
         private readonly ILogger<BulkSMSServices>? _logger;
         private const string SingleSmsUrl = "http://bulksmsbd.net/api/smsapi";
         private const string ManySmsUrl = "http://bulksmsbd.net/api/smsapimany";
 
-        public BulkSMSServices(IOptions<BulkSMS> smsOptions, ILogger<BulkSMSServices>? logger = null)
+        public BulkSMSServices(IOptions<BulkSMS> smsOptions, IConfiguration config, ILogger<BulkSMSServices>? logger = null)
         {
             _smsConfig = smsOptions.Value;
+            _config = config;
             _logger = logger;
         }
 
@@ -28,9 +30,19 @@ namespace OneWeb.Infrastructure.Bulk
                     cleanNumber = "88" + cleanNumber;
                 }
 
+                var apiKey = !string.IsNullOrWhiteSpace(_smsConfig?.Api_Key)
+                    ? _smsConfig.Api_Key
+                    : (_config["BulkSMS:Api_Key"] ?? _config["BulkSMS:ApiKey"] ?? "pUnGy1xfE77G1YicFYM7");
+
+                var senderId = !string.IsNullOrWhiteSpace(_smsConfig?.SenderId)
+                    ? _smsConfig.SenderId
+                    : (_config["BulkSMS:SenderId"] ?? _config["BulkSMS:senderid"] ?? "8809648908931");
+
                 using var client = new HttpClient();
+                client.Timeout = TimeSpan.FromSeconds(15);
+
                 var encodedMessage = Uri.EscapeDataString(message);
-                var url = $"{SingleSmsUrl}?api_key={Uri.EscapeDataString(_smsConfig.Api_Key)}&type=text&number={Uri.EscapeDataString(cleanNumber)}&senderid={Uri.EscapeDataString(_smsConfig.SenderId)}&message={encodedMessage}";
+                var url = $"{SingleSmsUrl}?api_key={Uri.EscapeDataString(apiKey)}&type=text&number={Uri.EscapeDataString(cleanNumber)}&senderid={Uri.EscapeDataString(senderId)}&message={encodedMessage}";
 
                 var response = await client.GetAsync(url);
                 var responseContent = await response.Content.ReadAsStringAsync();
@@ -40,10 +52,10 @@ namespace OneWeb.Infrastructure.Bulk
                 if (!string.IsNullOrEmpty(responseContent))
                 {
                     var result = JsonSerializer.Deserialize<BulkSMSApiResponse>(responseContent);
-                    return result ?? new BulkSMSApiResponse();
+                    return result ?? new BulkSMSApiResponse { response_code = (int)response.StatusCode, error_message = responseContent };
                 }
 
-                return new BulkSMSApiResponse { response_code = (int)response.StatusCode };
+                return new BulkSMSApiResponse { response_code = (int)response.StatusCode, error_message = "Empty response from gateway" };
             }
             catch (Exception ex)
             {
