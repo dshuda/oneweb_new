@@ -39,13 +39,6 @@ const fallbackBlogs: BlogItem[] = [
     image: '/banner_appliance_repair.png',
     createdAt: '2026-07-30T12:52:23.083102Z',
   },
-  {
-    id: 3,
-    title: 'Signs Your Home Electrical System Needs an Upgrade',
-    slug: 'electrical-system-upgrade',
-    image: '/banner_appliance_repair.png',
-    createdAt: '2026-07-25T12:52:23.083102Z',
-  },
 ];
 
 import { BASE_URL } from '@/lib/api';

@@ -39,13 +39,6 @@ const fallbackBlogs: BlogItem[] = [
     image: '/banner_appliance_repair.png',
     createdAt: '2026-07-30T12:52:23.083102Z',
   },
-  {
-    id: 3,
-    title: 'Signs Your Home Electrical System Needs an Upgrade',
-    slug: 'electrical-system-upgrade',
-    image: '/banner_appliance_repair.png',
-    createdAt: '2026-07-25T12:52:23.083102Z',
-  },
 ];
 
 async function getBlogs(): Promise<BlogItem[]> {
@@ -57,17 +50,18 @@ async function getBlogs(): Promise<BlogItem[]> {
     if (res.ok) {
       const data = await res.json();
       if (data?.items && Array.isArray(data.items) && data.items.length > 0) {
-        return data.items;
+        return data.items.slice(0, 4);
       }
     }
   } catch (error) {
     console.error('Failed to fetch blogs from API, using fallback:', error);
   }
-  return fallbackBlogs;
+  return fallbackBlogs.slice(0, 4);
 }
 
 export default async function BlogSection() {
   const blogs = await getBlogs();
+  const displayBlogs = blogs.slice(0, 4);
 
   return (
     <section className="bg-slate-50/70 py-12 sm:py-16 border-t border-border/40">
@@ -84,9 +78,9 @@ export default async function BlogSection() {
           </div>
         </div>
 
-        {/* Blog Cards Grid */}
-        <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
-          {blogs.map((blog) => (
+        {/* Blog Cards Grid - 4 Columns */}
+        <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
+          {displayBlogs.map((blog) => (
             <Link
               key={blog.id}
               href={`/blog/${blog.slug}`}
