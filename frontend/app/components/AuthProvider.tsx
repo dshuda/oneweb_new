@@ -27,7 +27,7 @@ interface AuthContextValue {
   authOpen: boolean;
   openAuth: (mode?: AuthMode) => void;
   closeAuth: () => void;
-  login: (phone: string) => void;
+  login: (phone: string, name?: string) => void;
   logout: () => void;
 }
 

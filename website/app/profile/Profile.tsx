@@ -173,16 +173,21 @@ export default function Profile() {
       })
         .then((res) => res.ok ? res.json() : null)
         .then((data) => {
-          if (data && (data.name || data.address)) {
+          if (data && (data.name || data.address || data.phone)) {
+            const updatedName = data.name || stored.name || '';
+            const updatedAddress = data.address || stored.address || '';
             const updated = {
-              name: data.name || stored.name || '',
-              address: data.address || stored.address || ''
+              name: updatedName,
+              address: updatedAddress
             };
             setProfile(updated);
             setDraft(updated);
             saveUserProfile(updated);
-            if (user && data.name) {
-              saveAuthUser({ ...user, name: data.name });
+            if (data.name) {
+              const currentAuth = loadAuthUser();
+              if (currentAuth) {
+                saveAuthUser({ ...currentAuth, name: data.name });
+              }
             }
           }
         })

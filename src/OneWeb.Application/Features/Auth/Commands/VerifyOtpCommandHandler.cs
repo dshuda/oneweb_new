@@ -33,15 +33,38 @@ public class VerifyOtpCommandHandler : IRequestHandler<VerifyOtpCommand, AuthRes
         if (!isValid)
             return new AuthResult(false, null, null, null, null, "Invalid or expired OTP");
         
-        // Find user by phone
-        var user = await _dbContext.Users.FirstOrDefaultAsync(u => u.Phone == request.Phone, cancellationToken);
+        // Clean and normalize phone number
+        var rawPhone = request.Phone?.Trim() ?? "";
+        var digits = new string(rawPhone.Where(char.IsDigit).ToArray());
+        var cleanPhone = digits;
+        if (digits.StartsWith("880") && digits.Length >= 13)
+        {
+            cleanPhone = "0" + digits.Substring(3);
+        }
+        else if (digits.Length == 10 && !digits.StartsWith("0"))
+        {
+            cleanPhone = "0" + digits;
+        }
+
+        var with88 = "+88" + cleanPhone;
+        var with88NoPlus = "88" + cleanPhone;
+        var last10 = cleanPhone.Length >= 10 ? cleanPhone.Substring(cleanPhone.Length - 10) : cleanPhone;
+
+        // Find user by phone (flexible matching)
+        var user = await _dbContext.Users.FirstOrDefaultAsync(
+            u => u.Phone == request.Phone ||
+                 u.Phone == cleanPhone ||
+                 u.Phone == with88 ||
+                 u.Phone == with88NoPlus ||
+                 (u.Phone != null && u.Phone.EndsWith(last10)),
+            cancellationToken);
       
         // If not found, create new user
         if (user == null)
         {
             user = new User
             {
-                Phone = request.Phone,
+                Phone = cleanPhone,
                 UserType = "customer",
                 Status = true,
                 IsApproved = true,

@@ -20,7 +20,7 @@ import { saveUserProfile } from '@/app/lib/storage';
 interface AuthDrawerProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onLogin: (phone: string) => void;
+  onLogin: (phone: string, name?: string) => void;
   mode?: 'account' | 'checkout' | 'schedule';
 }
 
