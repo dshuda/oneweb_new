@@ -15,6 +15,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { DEMO_PHONE, isValidPhone } from '@/app/lib/auth';
+import { saveUserProfile } from '@/app/lib/storage';
 
 interface AuthDrawerProps {
   open: boolean;

@@ -17,6 +17,7 @@ import {
   DEMO_PHONE,
   type AuthUser,
 } from '@/app/lib/auth';
+import { loadUserProfile } from '@/app/lib/storage';
 
 export type AuthMode = 'account' | 'checkout' | 'schedule';
 
