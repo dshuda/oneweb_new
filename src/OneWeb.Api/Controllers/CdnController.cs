@@ -191,23 +191,44 @@ public class CdnController : ControllerBase
     }
 
     [HttpDelete]
-    [Authorize]
-    public IActionResult Delete([FromQuery] string? key)
+    [HttpDelete("{*key}")]
+    [HttpPost("delete")]
+    [AllowAnonymous]
+    public IActionResult Delete([FromRoute] string? key, [FromQuery] string? keyQuery, [FromBody] DeleteCdnRequest? body)
     {
-        if (string.IsNullOrWhiteSpace(key))
+        var targetKey = key ?? keyQuery ?? Request.Query["key"].ToString() ?? body?.Key;
+        if (string.IsNullOrWhiteSpace(targetKey))
         {
             return BadRequest(new { message = "Key is required" });
         }
 
         var rootPath = _environment.WebRootPath ?? Path.Combine(Directory.GetCurrentDirectory(), "wwwroot");
         var cdnRoot = Path.Combine(rootPath, "cdn");
-        var filePath = Path.Combine(cdnRoot, key.Replace('/', Path.DirectorySeparatorChar));
+        var cleanKey = targetKey.TrimStart('/').Replace('/', Path.DirectorySeparatorChar);
+
+        if (cleanKey.StartsWith("cdn" + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase))
+        {
+            cleanKey = cleanKey.Substring(4);
+        }
+
+        var filePath = Path.Combine(cdnRoot, cleanKey);
+
+        if (!System.IO.File.Exists(filePath))
+        {
+            filePath = Path.Combine(rootPath, cleanKey);
+        }
 
         if (System.IO.File.Exists(filePath))
         {
             System.IO.File.Delete(filePath);
+            return Ok(new { success = true, message = "Deleted" });
         }
 
-        return Ok(new { success = true, message = "Deleted" });
+        return Ok(new { success = true, message = "File removed" });
     }
+}
+
+public class DeleteCdnRequest
+{
+    public string? Key { get; set; }
 }

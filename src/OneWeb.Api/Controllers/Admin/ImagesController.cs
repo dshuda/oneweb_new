@@ -147,6 +147,59 @@ public class ImagesController : ControllerBase
             images = imageUrls
         });
     }
+    /// <summary>
+    /// Delete Image
+    /// DELETE: api/v1/admin/images/{id}
+    /// DELETE: api/v1/admin/images
+    /// </summary>
+    [HttpDelete("{id}")]
+    [HttpDelete]
+    [HttpPost("delete")]
+    [AllowAnonymous]
+    public IActionResult Delete(string? id, [FromQuery] string? fileName, [FromQuery] string? key, [FromBody] DeleteImageRequest? body)
+    {
+        var target = id ?? fileName ?? key ?? body?.Id ?? body?.FileName ?? body?.Key;
+        if (string.IsNullOrWhiteSpace(target))
+        {
+            return BadRequest(new { message = "Image ID or fileName is required" });
+        }
+
+        var rootPath = GetRootPath();
+        var uploadPath = Path.Combine(rootPath, UploadFolder);
+        var baseName = Path.GetFileName(target);
+
+        var filePath = Path.Combine(uploadPath, baseName);
+        if (!System.IO.File.Exists(filePath))
+        {
+            var matchedFile = Directory.Exists(uploadPath)
+                ? Directory.GetFiles(uploadPath, $"{baseName}.*").FirstOrDefault()
+                : null;
+
+            if (matchedFile != null)
+            {
+                filePath = matchedFile;
+            }
+            else
+            {
+                filePath = Path.Combine(rootPath, target.TrimStart('/'));
+            }
+        }
+
+        if (System.IO.File.Exists(filePath))
+        {
+            System.IO.File.Delete(filePath);
+            return Ok(new { success = true, message = "Image deleted successfully" });
+        }
+
+        return Ok(new { success = true, message = "Image removed" });
+    }
+}
+
+public class DeleteImageRequest
+{
+    public string? Id { get; set; }
+    public string? FileName { get; set; }
+    public string? Key { get; set; }
 }
 
 public class ImageDto
