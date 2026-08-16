@@ -24,7 +24,7 @@ public class SendOtpCommandHandler : IRequestHandler<SendOtpCommand, SendOtpResu
         try
         {
             var otp = await _otpService.GenerateAndSaveOtpAsync(request.Phone);
-           var smsSent = await _smsServices.SendAsync("88"+request.Phone, $"Your otp  is : {otp}");
+            var smsSent = await _smsServices.SendAsync("88" + request.Phone, $"Your OneTap OTP is {otp}");
             
             return new SendOtpResult(true, "OTP sent successfully");
         }
