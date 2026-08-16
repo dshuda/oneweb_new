@@ -29,17 +29,10 @@ namespace OneWeb.Infrastructure.Bulk
                 }
 
                 using var client = new HttpClient();
-                var parameters = new Dictionary<string, string>
-                {
-                    { "api_key", _smsConfig.Api_Key },
-                    { "type", "text" },
-                    { "number", cleanNumber },
-                    { "senderid", _smsConfig.SenderId },
-                    { "message", message }
-                };
+                var encodedMessage = Uri.EscapeDataString(message);
+                var url = $"{SingleSmsUrl}?api_key={Uri.EscapeDataString(_smsConfig.Api_Key)}&type=text&number={Uri.EscapeDataString(cleanNumber)}&senderid={Uri.EscapeDataString(_smsConfig.SenderId)}&message={encodedMessage}";
 
-                var content = new FormUrlEncodedContent(parameters);
-                var response = await client.PostAsync(SingleSmsUrl, content);
+                var response = await client.GetAsync(url);
                 var responseContent = await response.Content.ReadAsStringAsync();
 
                 _logger?.LogInformation("BulkSMS response for {Number}: {Response}", cleanNumber, responseContent);
