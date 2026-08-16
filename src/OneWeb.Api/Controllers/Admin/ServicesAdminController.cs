@@ -36,21 +36,23 @@ public class ServicesAdminController : ControllerBase
     }
 
     [HttpPut("{id}")]
+    [HttpPost("{id}")]
+    [HttpPatch("{id}")]
     public async Task<IActionResult> UpdateService(long id, [FromBody] UpdateServiceRequest request)
     {
         var result = await _mediator.Send(new UpdateServiceCommand
         {
             Id = id,
-            Name = request.Name,
+            Name = request.Name ?? string.Empty,
             Slug = request.Slug,
             ServiceIcon = request.ServiceIcon,
             BannerImage = request.BannerImage,
             HeroTitle = request.HeroTitle,
             HeroSubtitle = request.HeroSubtitle,
             ParentId = request.ParentId,
-            Level = request.Level,
-            InitialPrice = request.InitialPrice,
-            Status = request.Status
+            Level = request.Level ?? 1,
+            InitialPrice = request.InitialPrice ?? 0,
+            Status = request.Status ?? true
         });
 
         if (!result)
@@ -267,15 +269,15 @@ public class ServicesAdminController : ControllerBase
     );
 
     public record UpdateServiceRequest(
-        string Name,
+        string? Name,
         string? Slug,
         string? ServiceIcon,
         string? BannerImage,
         string? HeroTitle,
         string? HeroSubtitle,
         long? ParentId,
-        int Level,
-        double InitialPrice,
-        bool Status
+        int? Level,
+        double? InitialPrice,
+        bool? Status
     );
 }

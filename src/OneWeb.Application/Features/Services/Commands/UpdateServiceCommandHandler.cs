@@ -19,15 +19,39 @@ public class UpdateServiceCommandHandler : IRequestHandler<UpdateServiceCommand,
         if (service == null)
             return false;
 
-        service.Name = request.Name;
-        service.Slug = request.Slug;
-        service.ParentId = request.ParentId;
-        service.Level = request.Level;
-        service.ServiceIcon = request.ServiceIcon;
-        service.BannerImage = request.BannerImage;
-        service.MetaTitle = request.HeroTitle;
-        service.MetaDescription = request.HeroSubtitle;
-        service.InitialPrice = request.InitialPrice;
+        if (!string.IsNullOrWhiteSpace(request.Name))
+            service.Name = request.Name;
+
+        if (!string.IsNullOrWhiteSpace(request.Slug))
+        {
+            service.Slug = request.Slug;
+        }
+        else if (string.IsNullOrWhiteSpace(service.Slug) && !string.IsNullOrWhiteSpace(service.Name))
+        {
+            service.Slug = request.Name.ToLower().Replace(" ", "-");
+        }
+
+        if (request.ParentId.HasValue)
+            service.ParentId = request.ParentId;
+
+        if (request.Level > 0)
+            service.Level = request.Level;
+
+        if (request.ServiceIcon != null)
+            service.ServiceIcon = request.ServiceIcon;
+
+        if (request.BannerImage != null)
+            service.BannerImage = request.BannerImage;
+
+        if (request.HeroTitle != null)
+            service.MetaTitle = request.HeroTitle;
+
+        if (request.HeroSubtitle != null)
+            service.MetaDescription = request.HeroSubtitle;
+
+        if (request.InitialPrice > 0)
+            service.InitialPrice = request.InitialPrice;
+
         service.Status = request.Status;
         service.UpdatedAt = DateTime.UtcNow;
 
