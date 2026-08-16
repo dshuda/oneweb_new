@@ -3,7 +3,8 @@
 import { useEffect, useState } from 'react';
 import ServiceCard from './ServiceCard';
 import { Badge } from '@/components/ui/badge';
-import { trendingServices } from '@/app/data/services';
+import { trendingServices, Service } from '@/app/data/services';
+import api from '@/lib/api';
 
 const TARGET_SECONDS = 11 * 24 * 3600 + 0 * 3600 + 36 * 60 + 9; // 11d : 0h : 36m : 09s
 
@@ -17,12 +18,40 @@ function getTimeLeft(target: number) {
 }
 
 export default function EidOffer() {
+  const [services, setServices] = useState<Service[]>(trendingServices);
   const [timeLeft, setTimeLeft] = useState({
     d: 11,
     h: 0,
     m: 36,
     s: 9,
   });
+
+  useEffect(() => {
+    async function loadOfferServices() {
+      try {
+        const res = await api.get('/api/v1/services?pageSize=5');
+        if (res.data?.items && Array.isArray(res.data.items) && res.data.items.length > 0) {
+          const mapped: Service[] = res.data.items.slice(0, 5).map((item: any) => ({
+            id: String(item.id),
+            title: item.name,
+            rating: item.rating || 4.9,
+            reviews: item.reviewsCount || 120,
+            price: item.initialPrice || 450,
+            originalPrice: item.initialPrice ? item.initialPrice + 150 : 600,
+            discount: item.discount || '20% Off',
+            image: item.bannerImage || '/banner_hero.png',
+            tag: item.tag || 'Special Offer',
+            tagColor: 'bg-amber-500 text-white',
+            category: item.categoryName || 'Home Service',
+          }));
+          setServices(mapped);
+        }
+      } catch (err) {
+        console.warn('Using fallback services for Eid Offer:', err);
+      }
+    }
+    loadOfferServices();
+  }, []);
 
   useEffect(() => {
     const target = Date.now() + TARGET_SECONDS * 1000;
@@ -55,7 +84,7 @@ export default function EidOffer() {
 
         {/* Services Grid */}
         <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
-          {trendingServices.map((service) => (
+          {services.map((service) => (
             <ServiceCard key={service.id} {...service} showDetails={false} />
           ))}
         </div>
@@ -63,3 +92,4 @@ export default function EidOffer() {
     </section>
   );
 }
+
