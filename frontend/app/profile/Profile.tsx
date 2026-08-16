@@ -270,6 +270,17 @@ export default function Profile() {
     },
   ];
 
+  const [paymentStatus, setPaymentStatus] = useState<string | null>(null);
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const p = params.get('payment');
+    if (p) {
+      setPaymentStatus(p);
+      setTab('bookings');
+    }
+  }, []);
+
   return (
     <div className="mx-auto max-w-6xl px-4 pb-20 pt-28 sm:px-6 lg:pt-32">
       {/* Heading */}
@@ -281,6 +292,26 @@ export default function Profile() {
           Welcome back, {displayName} — manage your bookings and profile.
         </p>
       </div>
+
+      {paymentStatus === 'success' && (
+        <div className="mb-6 flex items-center gap-3 rounded-2xl border border-green-200 bg-green-50 p-4 text-green-800">
+          <CheckCircle2 className="h-6 w-6 text-green-600 shrink-0" />
+          <div>
+            <p className="font-bold">Payment Successful!</p>
+            <p className="text-xs text-green-700">Your online payment was verified and your service booking is confirmed.</p>
+          </div>
+        </div>
+      )}
+
+      {paymentStatus === 'failed' && (
+        <div className="mb-6 flex items-center gap-3 rounded-2xl border border-red-200 bg-red-50 p-4 text-red-800">
+          <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-red-100 font-bold text-red-600">✕</div>
+          <div>
+            <p className="font-bold">Payment Failed or Cancelled</p>
+            <p className="text-xs text-red-700">The online payment could not be completed. You can retry anytime.</p>
+          </div>
+        </div>
+      )}
 
       <div className="lg:grid lg:grid-cols-[260px_minmax(0,1fr)] lg:items-start lg:gap-6">
         {/* ---- Sidebar (desktop) ---- */}

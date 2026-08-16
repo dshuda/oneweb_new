@@ -58,6 +58,7 @@ public static class DependencyInjection
         services.AddScoped<ISmsService, SmsService>();
         services.AddHttpClient<ISmsService, SmsService>();
         services.AddScoped<IPaymentService, PaymentService>();
+        services.AddScoped<ISslCommerzService, SslCommerzService>();
         services.AddScoped<IFcmService, FcmService>();
         services.AddScoped<IDashboardCacheService, DashboardCacheService>();
         // add bulk sms services
