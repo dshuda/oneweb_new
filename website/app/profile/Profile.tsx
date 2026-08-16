@@ -199,7 +199,7 @@ export default function Profile() {
       })
         .then((res) => res.ok ? res.json() : null)
         .then((data) => {
-          if (data && Array.isArray(data.items) && data.items.length > 0) {
+          if (data && Array.isArray(data.items)) {
             const mappedOrders: Booking[] = data.items.map((o: any) => ({
               id: o.id.toString(),
               total: o.grandTotal || 0,
@@ -223,6 +223,9 @@ export default function Profile() {
             }));
             setBookings(mappedOrders);
             saveBookings(mappedOrders);
+          } else {
+            setBookings([]);
+            saveBookings([]);
           }
         })
         .catch(() => {});

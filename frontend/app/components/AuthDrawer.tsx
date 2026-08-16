@@ -239,7 +239,11 @@ export default function AuthDrawer({
       onOpenChange(false);
 
       if (mode === 'account') {
-        router.push('/profile');
+        if (typeof window !== 'undefined' && window.location.pathname === '/profile') {
+          router.refresh();
+        } else {
+          router.push('/profile');
+        }
       }
     } catch (err: any) {
       setOtpError(err?.message || 'Verification failed. Network error.');

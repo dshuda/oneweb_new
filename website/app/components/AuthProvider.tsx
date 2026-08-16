@@ -72,6 +72,13 @@ export default function AuthProvider({ children }: { children: ReactNode }) {
 
   const logout = useCallback(() => {
     clearAuthUser();
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem('accessToken');
+      localStorage.removeItem('refreshToken');
+      localStorage.removeItem('userId');
+      localStorage.removeItem('onetap.bookings.v1');
+      localStorage.removeItem('onetap.profile.v1');
+    }
     setUser(null);
   }, []);
 
