@@ -67,8 +67,8 @@ public class CdnController : ControllerBase
                 items.Add(new
                 {
                     key = relativePath,
-                    url = $"{baseUrl}/cdn/{relativePath}",
-                    fileUrl = $"{baseUrl}/api/v1/cdn/file?key={Uri.EscapeDataString(relativePath)}",
+                    url = $"{baseUrl}/api/v1/cdn/file?key={Uri.EscapeDataString(relativePath)}",
+                    cdnUrl = $"{baseUrl}/cdn/{relativePath}",
                     size = fileInfo.Length,
                     lastModified = fileInfo.LastWriteTimeUtc
                 });
@@ -193,8 +193,8 @@ public class CdnController : ControllerBase
         return Ok(new
         {
             key = relativeKey,
-            url = $"{baseUrl}/cdn/{relativeKey}",
-            fileUrl = $"{baseUrl}/api/v1/cdn/file?key={Uri.EscapeDataString(relativeKey)}",
+            url = $"{baseUrl}/api/v1/cdn/file?key={Uri.EscapeDataString(relativeKey)}",
+            cdnUrl = $"{baseUrl}/cdn/{relativeKey}",
             size = targetFile.Length,
             lastModified = DateTime.UtcNow
         });
