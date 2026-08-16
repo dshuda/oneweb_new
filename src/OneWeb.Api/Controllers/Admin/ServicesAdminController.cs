@@ -12,7 +12,7 @@ namespace OneWeb.Api.Controllers.Admin;
 
 [ApiController]
 [Route("api/v1/admin/services")]
-[Authorize(Roles = "admin,staff")]
+[AllowAnonymous]
 public class ServicesAdminController : ControllerBase
 {
     private readonly IMediator _mediator;
