@@ -1,0 +1,11 @@
+using MediatR;
+using OneWeb.Application.Common.Models;
+
+namespace OneWeb.Application.Features.Vendors.Commands;
+
+public record CreateWithdrawRequestCommand(
+    long VendorId,
+    double Amount,
+    string PaymentMethod,
+    string AccountNumber
+) : IRequest<long>;

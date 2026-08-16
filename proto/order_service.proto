@@ -1,0 +1,35 @@
+syntax = "proto3";
+option csharp_namespace = "OneWeb.GrpcServices";
+
+service OrderService {
+  rpc CreateOrder (CreateOrderRequest) returns (OrderResponse);
+  rpc UpdateOrderStatus (UpdateStatusRequest) returns (OrderResponse);
+  rpc GetOrderById (GetOrderRequest) returns (OrderResponse);
+}
+
+message CreateOrderRequest {
+  int64 user_id = 1;
+  int32 service_id = 2;
+  string shipping_address = 3;
+  double grand_total = 4;
+  string payment_type = 5;
+}
+
+message UpdateStatusRequest {
+  int64 order_id = 1;
+  string new_status = 2;
+  int64 updated_by = 3;
+  string role = 4;
+}
+
+message GetOrderRequest {
+  int64 order_id = 1;
+}
+
+message OrderResponse {
+  bool success = 1;
+  int64 order_id = 2;
+  string tracking_code = 3;
+  string status = 4;
+  string message = 5;
+}

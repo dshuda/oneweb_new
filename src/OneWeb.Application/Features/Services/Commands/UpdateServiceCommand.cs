@@ -1,0 +1,18 @@
+using MediatR;
+
+namespace OneWeb.Application.Features.Services.Commands;
+
+public record UpdateServiceCommand : IRequest<bool>
+{
+    public long Id { get; set; }
+    public string Name { get; set; } = string.Empty;
+    public string? Slug { get; set; }
+    public string? ServiceIcon { get; set; }
+    public string? BannerImage { get; set; }
+    public string? HeroTitle { get; set; }
+    public string? HeroSubtitle { get; set; }
+    public long? ParentId { get; set; }
+    public int Level { get; set; }
+    public double InitialPrice { get; set; }
+    public bool Status { get; set; }
+}

@@ -1,0 +1,8 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/OneWeb.Api/OneWeb.Api.csproj" />
+    <Project Path="src/OneWeb.Application/OneWeb.Application.csproj" />
+    <Project Path="src/OneWeb.Domain/OneWeb.Domain.csproj" />
+    <Project Path="src/OneWeb.Infrastructure/OneWeb.Infrastructure.csproj" />
+  </Folder>
+</Solution>

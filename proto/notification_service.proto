@@ -1,0 +1,27 @@
+syntax = "proto3";
+option csharp_namespace = "OneWeb.GrpcServices";
+
+service NotificationService {
+  rpc SendPush (PushRequest) returns (PushResponse);
+  rpc SendSms (SmsRequest) returns (SmsResponse);
+}
+
+message PushRequest {
+  int64 user_id = 1;
+  string title = 2;
+  string body = 3;
+}
+
+message PushResponse { 
+  bool success = 1; 
+  string message = 2; 
+}
+
+message SmsRequest { 
+  string phone = 1; 
+  string message = 2; 
+}
+
+message SmsResponse { 
+  bool success = 1; 
+}
