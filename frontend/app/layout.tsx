@@ -1,4 +1,3 @@
-import { Analytics } from "@vercel/analytics/next";
 import type { Metadata, Viewport } from "next";
 import { Inter } from "next/font/google";
 import AuthProvider from "./components/AuthProvider";
@@ -44,8 +43,8 @@ export default function RootLayout({
         <AuthProvider>
           <CartProvider>{children}</CartProvider>
         </AuthProvider>
-        {process.env.NODE_ENV === "production" && <Analytics />}
       </body>
     </html>
   );
 }
+
