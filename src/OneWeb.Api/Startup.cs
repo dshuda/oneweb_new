@@ -1,4 +1,4 @@
-﻿using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 using OneWeb.Api.Hubs;
 using OneWeb.Application;
@@ -39,6 +39,14 @@ public class Startup
                       .AllowAnyMethod()
                       .AllowAnyHeader();
             });
+        });
+
+        // Increase multipart upload size limits (100MB)
+        services.Configure<Microsoft.AspNetCore.Http.Features.FormOptions>(options =>
+        {
+            options.ValueLengthLimit = int.MaxValue;
+            options.MultipartBodyLengthLimit = 104857600; // 100MB
+            options.MultipartHeadersLengthLimit = int.MaxValue;
         });
 
         // Add Endpoints API explorer

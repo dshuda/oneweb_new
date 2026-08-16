@@ -1,3 +1,5 @@
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 
 namespace OneWeb.Api.Controllers;
@@ -13,7 +15,21 @@ public class CdnController : ControllerBase
         _environment = environment;
     }
 
+    private string GetBaseUrl()
+    {
+        var publicBaseUrl = Environment.GetEnvironmentVariable("API_PUBLIC_BASE_URL")
+            ?? Environment.GetEnvironmentVariable("NEXT_PUBLIC_API_URL");
+
+        if (!string.IsNullOrWhiteSpace(publicBaseUrl))
+        {
+            return publicBaseUrl.TrimEnd('/');
+        }
+
+        return $"{Request.Scheme}://{Request.Host}";
+    }
+
     [HttpGet]
+    [AllowAnonymous]
     public IActionResult GetAssets([FromQuery] string? folder = null, [FromQuery] int take = 500)
     {
         var rootPath = _environment.WebRootPath ?? Path.Combine(Directory.GetCurrentDirectory(), "wwwroot");
@@ -29,13 +45,12 @@ public class CdnController : ControllerBase
             : Path.Combine(cdnRoot, folder.Replace('/', Path.DirectorySeparatorChar));
 
         var items = new List<object>();
+        var baseUrl = GetBaseUrl();
 
         if (Directory.Exists(targetDir))
         {
             var files = Directory.GetFiles(targetDir, "*.*", SearchOption.AllDirectories)
                 .Take(take);
-
-            var baseUrl = $"{Request.Scheme}://{Request.Host}";
 
             foreach (var filePath in files)
             {
@@ -45,7 +60,7 @@ public class CdnController : ControllerBase
                 items.Add(new
                 {
                     key = relativePath,
-                    url = $"{baseUrl}/cdn/{relativePath}",
+                    url = $"{baseUrl}/api/v1/cdn/file?key={Uri.EscapeDataString(relativePath)}",
                     size = fileInfo.Length,
                     lastModified = fileInfo.LastWriteTimeUtc
                 });
@@ -55,7 +70,83 @@ public class CdnController : ControllerBase
         return Ok(new { items });
     }
 
+    [HttpGet("file")]
+    [HttpGet("/cdn/{**path}")]
+    [AllowAnonymous]
+    public IActionResult GetFile([FromQuery] string? key, string? path)
+    {
+        var fileKey = key ?? path;
+        if (string.IsNullOrWhiteSpace(fileKey))
+        {
+            return BadRequest(new { message = "Key or path is required" });
+        }
+
+        var rootPath = _environment.WebRootPath ?? Path.Combine(Directory.GetCurrentDirectory(), "wwwroot");
+        var cdnRoot = Path.Combine(rootPath, "cdn");
+        var normalizedKey = fileKey.Replace('/', Path.DirectorySeparatorChar);
+        var filePath = Path.Combine(cdnRoot, normalizedKey);
+
+        if (!System.IO.File.Exists(filePath))
+        {
+            // If .gz or .br requested, check if uncompressed exists
+            if (normalizedKey.EndsWith(".gz", StringComparison.OrdinalIgnoreCase) || normalizedKey.EndsWith(".br", StringComparison.OrdinalIgnoreCase))
+            {
+                var cleanKey = Path.ChangeExtension(normalizedKey, null);
+                var cleanPath = Path.Combine(cdnRoot, cleanKey);
+                if (System.IO.File.Exists(cleanPath))
+                {
+                    filePath = cleanPath;
+                }
+                else
+                {
+                    cleanPath = Path.Combine(rootPath, cleanKey);
+                    if (System.IO.File.Exists(cleanPath))
+                        filePath = cleanPath;
+                }
+            }
+        }
+
+        if (!System.IO.File.Exists(filePath))
+        {
+            // Check in wwwroot directly as fallback
+            filePath = Path.Combine(rootPath, normalizedKey);
+            if (!System.IO.File.Exists(filePath))
+            {
+                return NotFound(new { message = "File not found" });
+            }
+        }
+
+        var ext = Path.GetExtension(filePath).ToLowerInvariant();
+        if (ext == ".gz")
+        {
+            Response.Headers.Append("Content-Encoding", "gzip");
+            ext = Path.GetExtension(Path.GetFileNameWithoutExtension(filePath)).ToLowerInvariant();
+        }
+        else if (ext == ".br")
+        {
+            Response.Headers.Append("Content-Encoding", "br");
+            ext = Path.GetExtension(Path.GetFileNameWithoutExtension(filePath)).ToLowerInvariant();
+        }
+
+        var contentType = ext switch
+        {
+            ".svg" => "image/svg+xml",
+            ".png" => "image/png",
+            ".jpg" or ".jpeg" => "image/jpeg",
+            ".webp" => "image/webp",
+            ".gif" => "image/gif",
+            ".ico" => "image/x-icon",
+            _ => "application/octet-stream"
+        };
+
+        Response.Headers.Append("Access-Control-Allow-Origin", "*");
+        return PhysicalFile(filePath, contentType);
+    }
+
     [HttpPost("upload")]
+    [Authorize]
+    [RequestSizeLimit(104857600)]
+    [RequestFormLimits(MultipartBodyLengthLimit = 104857600)]
     public async Task<IActionResult> Upload([FromForm] IFormFile? file, [FromForm] string? folder = null)
     {
         if (file == null || file.Length == 0)
@@ -82,18 +173,19 @@ public class CdnController : ControllerBase
         }
 
         var relativeKey = Path.GetRelativePath(cdnRoot, filePath).Replace('\\', '/');
-        var baseUrl = $"{Request.Scheme}://{Request.Host}";
+        var baseUrl = GetBaseUrl();
 
         return Ok(new
         {
             key = relativeKey,
-            url = $"{baseUrl}/cdn/{relativeKey}",
+            url = $"{baseUrl}/api/v1/cdn/file?key={Uri.EscapeDataString(relativeKey)}",
             size = file.Length,
             lastModified = DateTime.UtcNow
         });
     }
 
     [HttpDelete]
+    [Authorize]
     public IActionResult Delete([FromQuery] string? key)
     {
         if (string.IsNullOrWhiteSpace(key))

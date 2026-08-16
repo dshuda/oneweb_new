@@ -1,4 +1,4 @@
-﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 
@@ -6,7 +6,6 @@ namespace OneWeb.Api.Controllers.Admin;
 
 [Route("api/v1/admin/[controller]")]
 [ApiController]
-[Authorize]
 public class ImagesController : ControllerBase
 {
     private readonly IWebHostEnvironment _environment;
@@ -16,14 +15,21 @@ public class ImagesController : ControllerBase
         _environment = environment;
     }
 
-    // Folder name
     private const string UploadFolder = "UploadImage";
+
+    private string GetRootPath()
+    {
+        return _environment.WebRootPath ?? Path.Combine(Directory.GetCurrentDirectory(), "wwwroot");
+    }
 
     /// <summary>
     /// Upload Image
-    /// POST: api/images/upload
+    /// POST: api/v1/admin/images
     /// </summary>
-    [HttpPost()]
+    [HttpPost]
+    [Authorize]
+    [RequestSizeLimit(104857600)]
+    [RequestFormLimits(MultipartBodyLengthLimit = 104857600)]
     public async Task<IActionResult> Upload([FromForm] UploadTO model)
     {
         if (model.Image == null || model.Image.Length == 0)
@@ -33,30 +39,23 @@ public class ImagesController : ControllerBase
         if (!model.Image.ContentType.StartsWith("image/"))
             return BadRequest(new { message = "Only image files are allowed" });
 
-        // Create folder if not exists
-        var uploadPath = Path.Combine(
-            _environment.WebRootPath,
-            UploadFolder
-        );
+        var rootPath = GetRootPath();
+        var uploadPath = Path.Combine(rootPath, UploadFolder);
 
         if (!Directory.Exists(uploadPath))
             Directory.CreateDirectory(uploadPath);
 
         // Unique file name
-        var fileName =
-            $"{Guid.NewGuid()}{Path.GetExtension(model.Image.FileName)}";
-
+        var fileName = $"{Guid.NewGuid()}{Path.GetExtension(model.Image.FileName)}";
         var filePath = Path.Combine(uploadPath, fileName);
 
-        // Save file
         using (var stream = new FileStream(filePath, FileMode.Create))
         {
             await model.Image.CopyToAsync(stream);
         }
 
-        // File URL
-        var url =
-            $"/{UploadFolder}/{fileName}";
+        // Accessible URL through API proxy
+        var url = $"/api/v1/UploadImage/{fileName}";
 
         return Ok(new
         {
@@ -65,16 +64,54 @@ public class ImagesController : ControllerBase
     }
 
     /// <summary>
-    /// Get All Images
-    /// GET: api/images/list
+    /// Stream image by filename directly
     /// </summary>
-    [HttpGet()]
+    [HttpGet("/api/v1/UploadImage/{fileName}")]
+    [HttpGet("/UploadImage/{fileName}")]
+    [HttpGet("file")]
+    [AllowAnonymous]
+    public IActionResult GetFile(string? fileName, [FromQuery] string? name)
+    {
+        var targetName = fileName ?? name;
+        if (string.IsNullOrWhiteSpace(targetName))
+            return BadRequest(new { message = "FileName is required" });
+
+        var rootPath = GetRootPath();
+        var uploadPath = Path.Combine(rootPath, UploadFolder);
+        var filePath = Path.Combine(uploadPath, Path.GetFileName(targetName));
+
+        if (!System.IO.File.Exists(filePath))
+        {
+            filePath = Path.Combine(rootPath, targetName.TrimStart('/'));
+            if (!System.IO.File.Exists(filePath))
+                return NotFound(new { message = "Image not found" });
+        }
+
+        var ext = Path.GetExtension(filePath).ToLowerInvariant();
+        var contentType = ext switch
+        {
+            ".svg" => "image/svg+xml",
+            ".png" => "image/png",
+            ".jpg" or ".jpeg" => "image/jpeg",
+            ".webp" => "image/webp",
+            ".gif" => "image/gif",
+            ".ico" => "image/x-icon",
+            _ => "application/octet-stream"
+        };
+
+        return PhysicalFile(filePath, contentType);
+    }
+
+    /// <summary>
+    /// Get All Images
+    /// GET: api/v1/admin/images
+    /// </summary>
+    [HttpGet]
+    [Authorize]
     public IActionResult GetAll()
     {
-        var uploadPath = Path.Combine(
-            _environment.WebRootPath,
-            UploadFolder
-        );
+        var rootPath = GetRootPath();
+        var uploadPath = Path.Combine(rootPath, UploadFolder);
 
         if (!Directory.Exists(uploadPath))
         {
@@ -94,7 +131,7 @@ public class ImagesController : ControllerBase
                 {
                     Id = id,
                     FileName = file.Name,
-                    Url = $"/{UploadFolder}/{file.Name}",
+                    Url = $"/api/v1/UploadImage/{file.Name}",
                     CreatedAt = file.CreationTime,
                     UpdatedAt = file.LastWriteTime
                 };
@@ -110,14 +147,14 @@ public class ImagesController : ControllerBase
 
 public class ImageDto
 {
-    public string Id { get; set; }          // unique identifier for delete
-    public string Url { get; set; }
+    public string Id { get; set; } = string.Empty;
+    public string Url { get; set; } = string.Empty;
     public DateTime CreatedAt { get; set; }
     public DateTime? UpdatedAt { get; set; }
-    public string FileName { get; set; }
+    public string FileName { get; set; } = string.Empty;
 }
 
 public record UploadTO
 {
-    public IFormFile Image { get; set; }
+    public IFormFile? Image { get; set; }
 }
