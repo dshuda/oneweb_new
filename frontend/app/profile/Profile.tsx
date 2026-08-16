@@ -125,12 +125,37 @@ export default function Profile() {
     setProfile(stored);
     setDraft(stored);
     setLoaded(true);
+
+    // Fetch live user data from backend if logged in
+    const token = typeof window !== 'undefined' ? localStorage.getItem('accessToken') : null;
+    if (token) {
+      fetch('/api/v1/auth/me', {
+        headers: { Authorization: `Bearer ${token}` }
+      })
+        .then((res) => res.ok ? res.json() : null)
+        .then((data) => {
+          if (data && (data.name || data.address)) {
+            const updated = {
+              name: data.name || stored.name || '',
+              address: data.address || stored.address || ''
+            };
+            setProfile(updated);
+            setDraft(updated);
+            saveUserProfile(updated);
+            if (user && data.name) {
+              saveAuthUser({ ...user, name: data.name });
+            }
+          }
+        })
+        .catch(() => {});
+    }
+
     // Support deep links like /profile?tab=bookings.
     const t = new URLSearchParams(window.location.search).get('tab');
     if (t === 'overview' || t === 'bookings' || t === 'settings') {
       setTab(t);
     }
-  }, []);
+  }, [user]);
 
   const handleLogout = () => {
     logout();
@@ -142,7 +167,7 @@ export default function Profile() {
     setBookings(loadBookings());
   };
 
-  const handleSaveProfile = () => {
+  const handleSaveProfile = async () => {
     const next = { name: draft.name.trim(), address: draft.address.trim() };
     saveUserProfile(next);
     setProfile(next);
@@ -150,6 +175,23 @@ export default function Profile() {
     if (user) {
       saveAuthUser({ ...user, name: next.name || undefined });
     }
+
+    const token = typeof window !== 'undefined' ? localStorage.getItem('accessToken') : null;
+    if (token) {
+      try {
+        await fetch('/api/v1/auth/profile', {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`
+          },
+          body: JSON.stringify({ name: next.name, address: next.address })
+        });
+      } catch (e) {
+        // Fallback to local persistence
+      }
+    }
+
     setSavedFlash(true);
     window.setTimeout(() => setSavedFlash(false), 2000);
   };

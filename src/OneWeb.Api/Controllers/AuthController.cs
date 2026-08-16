@@ -13,10 +13,12 @@ namespace OneWeb.Api.Controllers;
 public class AuthController : ControllerBase
 {
     private readonly IMediator _mediator;
+    private readonly OneWeb.Infrastructure.Persistence.AppDbContext _dbContext;
     
-    public AuthController(IMediator mediator)
+    public AuthController(IMediator mediator, OneWeb.Infrastructure.Persistence.AppDbContext dbContext)
     {
         _mediator = mediator;
+        _dbContext = dbContext;
     }
     
     // DTOs as nested records
@@ -24,6 +26,7 @@ public class AuthController : ControllerBase
     public record VerifyOtpRequest(string Phone, string Otp);
     public record AdminLoginRequest(string Email, string Password);
     public record RefreshTokenRequest(long UserId, string RefreshToken);
+    public record UpdateProfileRequest(string? Name, string? Address, string? Email);
     
     [HttpPost("send-otp")]
     public async Task<IActionResult> SendOtp([FromBody] SendOtpRequest request)
@@ -47,7 +50,69 @@ public class AuthController : ControllerBase
             refreshToken = result.RefreshToken, 
             userType = result.UserType,
             userId = result.UserId,
+            name = result.Name,
+            address = result.Address,
+            email = result.Email,
+            phone = result.Phone,
             NameRequired = result.NameRequired
+        });
+    }
+
+    [Authorize]
+    [HttpGet("me")]
+    public async Task<IActionResult> GetCurrentUser()
+    {
+        var userIdClaim = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier);
+        if (userIdClaim == null || !long.TryParse(userIdClaim.Value, out var userId))
+            return Unauthorized(new { message = "Invalid user token" });
+
+        var user = await Microsoft.EntityFrameworkCore.EntityFrameworkQueryableExtensions.FirstOrDefaultAsync(
+            _dbContext.Users, u => u.Id == userId
+        );
+        if (user == null)
+            return NotFound(new { message = "User not found" });
+
+        return Ok(new
+        {
+            id = user.Id,
+            name = user.Name,
+            phone = user.Phone,
+            email = user.Email,
+            address = user.Address,
+            userType = user.UserType
+        });
+    }
+
+    [Authorize]
+    [HttpPut("profile")]
+    public async Task<IActionResult> UpdateProfile([FromBody] UpdateProfileRequest request)
+    {
+        var userIdClaim = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier);
+        if (userIdClaim == null || !long.TryParse(userIdClaim.Value, out var userId))
+            return Unauthorized(new { message = "Invalid user token" });
+
+        var user = await Microsoft.EntityFrameworkCore.EntityFrameworkQueryableExtensions.FirstOrDefaultAsync(
+            _dbContext.Users, u => u.Id == userId
+        );
+        if (user == null)
+            return NotFound(new { message = "User not found" });
+
+        if (request.Name != null) user.Name = request.Name.Trim();
+        if (request.Address != null) user.Address = request.Address.Trim();
+        if (request.Email != null) user.Email = request.Email.Trim();
+
+        _dbContext.Entry(user).State = Microsoft.EntityFrameworkCore.EntityState.Modified;
+        await _dbContext.SaveChangesAsync();
+
+        return Ok(new
+        {
+            success = true,
+            message = "Profile updated successfully",
+            id = user.Id,
+            name = user.Name,
+            phone = user.Phone,
+            email = user.Email,
+            address = user.Address
         });
     }
     

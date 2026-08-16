@@ -56,9 +56,18 @@ public class VerifyOtpCommandHandler : IRequestHandler<VerifyOtpCommand, AuthRes
         var accessToken = _tokenService.GenerateAccessToken(user.Id, user.UserType ?? "customer", user.Phone);
         var refreshToken = _tokenService.GenerateRefreshToken();
         
-        // Save refresh token
-        await _refreshTokenService.SaveRefreshTokenAsync(user.Id, refreshToken);
-        
-        return new AuthResult(true, accessToken, refreshToken, user.UserType, user.Id, "Login successful", requiredName);
+        return new AuthResult(
+            true, 
+            accessToken, 
+            refreshToken, 
+            user.UserType, 
+            user.Id, 
+            "Login successful", 
+            requiredName,
+            user.Name,
+            user.Address,
+            user.Email,
+            user.Phone
+        );
     }
 }

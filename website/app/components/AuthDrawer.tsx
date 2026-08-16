@@ -227,7 +227,14 @@ export default function AuthDrawer({
         if (data.userId) localStorage.setItem('userId', data.userId.toString());
       }
 
-      onLogin(phone);
+      if (data?.name || data?.address) {
+        saveUserProfile({
+          name: data.name || '',
+          address: data.address || '',
+        });
+      }
+
+      onLogin(phone, data?.name);
       onOpenChange(false);
 
       if (mode === 'account') {

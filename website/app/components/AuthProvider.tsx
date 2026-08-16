@@ -59,10 +59,11 @@ export default function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
   const closeAuth = useCallback(() => setAuthOpen(false), []);
 
-  const login = useCallback((phone: string) => {
+  const login = useCallback((phone: string, name?: string) => {
+    const stored = loadUserProfile();
     const nextUser: AuthUser = {
       phone,
-      name: phone === DEMO_PHONE ? 'Demo User' : undefined,
+      name: name || stored.name || (phone === DEMO_PHONE ? 'Demo User' : undefined),
     };
     saveAuthUser(nextUser);
     setUser(nextUser);
