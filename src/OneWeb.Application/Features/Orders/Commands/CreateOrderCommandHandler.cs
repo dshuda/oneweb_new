@@ -21,9 +21,9 @@ public class CreateOrderCommandHandler : IRequestHandler<CreateOrderCommand, Cre
 
     public async Task<CreateOrderResult> Handle(CreateOrderCommand request, CancellationToken cancellationToken)
     {
-        // Validate: ServiceId exists and Level=2 and Status=true
+        // Validate: ServiceId exists and Status=true
         var service = await _dbContext.Services.Include(f => f.Prices).FirstOrDefaultAsync(
-            s => s.Id == request.ServiceId && s.Level == 2 && s.Status,
+            s => s.Id == request.ServiceId && s.Status,
             cancellationToken);
 
         if (service == null)

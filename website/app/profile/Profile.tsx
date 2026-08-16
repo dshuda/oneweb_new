@@ -49,6 +49,42 @@ function formatBookedAt(iso: string): string {
   });
 }
 
+function getStatusBadge(status?: string) {
+  switch (status?.toLowerCase()) {
+    case 'completed':
+      return (
+        <span className="rounded-full bg-emerald-100 px-2.5 py-1 text-xs font-bold text-emerald-700">
+          Completed
+        </span>
+      );
+    case 'in_progress':
+    case 'in progress':
+      return (
+        <span className="rounded-full bg-blue-100 px-2.5 py-1 text-xs font-bold text-blue-700">
+          In Progress
+        </span>
+      );
+    case 'confirmed':
+      return (
+        <span className="rounded-full bg-green-100 px-2.5 py-1 text-xs font-bold text-green-700">
+          Confirmed
+        </span>
+      );
+    case 'cancelled':
+      return (
+        <span className="rounded-full bg-red-100 px-2.5 py-1 text-xs font-bold text-red-700">
+          Cancelled
+        </span>
+      );
+    default:
+      return (
+        <span className="rounded-full bg-amber-100 px-2.5 py-1 text-xs font-bold text-amber-700">
+          Pending
+        </span>
+      );
+  }
+}
+
 function BookingRow({
   booking,
   onDelete,
@@ -80,13 +116,14 @@ function BookingRow({
               </span>
             )}
             <span>· Booked {formatBookedAt(booking.createdAt)}</span>
-            <span>· {booking.payment === 'cod' ? 'Cash on Delivery' : 'Online'}</span>
+            <span>· {booking.payment === 'cod' ? 'Cash on Delivery' : 'Online (SSLCommerz)'}</span>
+            {booking.paymentStatus === 'paid' && (
+              <span className="font-semibold text-green-600">· Paid</span>
+            )}
           </p>
         </div>
         <div className="flex shrink-0 items-center gap-2.5">
-          <span className="rounded-full bg-green-100 px-2.5 py-1 text-xs font-bold text-green-700">
-            Confirmed
-          </span>
+          {getStatusBadge(booking.deliveryStatus)}
           <button
             type="button"
             aria-label="Delete booking"
@@ -100,6 +137,7 @@ function BookingRow({
       <div className="mt-3 flex items-center justify-between border-t border-border/70 pt-3 text-sm">
         <span className="text-muted-foreground">
           {serviceCount} {serviceCount === 1 ? 'service' : 'services'}
+          {booking.trackingCode && ` · Trk: ${booking.trackingCode}`}
         </span>
         <span className="font-bold text-primary">
           ৳{booking.total.toLocaleString()}
@@ -126,9 +164,10 @@ export default function Profile() {
     setDraft(stored);
     setLoaded(true);
 
-    // Fetch live user data from backend if logged in
+    // Fetch live user profile and orders from backend if logged in
     const token = typeof window !== 'undefined' ? localStorage.getItem('accessToken') : null;
     if (token) {
+      // 1. Live profile
       fetch('/api/v1/auth/me', {
         headers: { Authorization: `Bearer ${token}` }
       })
@@ -145,6 +184,40 @@ export default function Profile() {
             if (user && data.name) {
               saveAuthUser({ ...user, name: data.name });
             }
+          }
+        })
+        .catch(() => {});
+
+      // 2. Live database orders
+      fetch('/api/v1/orders?page=1&pageSize=50', {
+        headers: { Authorization: `Bearer ${token}` }
+      })
+        .then((res) => res.ok ? res.json() : null)
+        .then((data) => {
+          if (data && Array.isArray(data.items) && data.items.length > 0) {
+            const mappedOrders: Booking[] = data.items.map((o: any) => ({
+              id: o.id.toString(),
+              total: o.grandTotal || 0,
+              payment: o.paymentType === 'cod' ? 'cod' : 'online',
+              paymentStatus: o.paymentStatus || 'unpaid',
+              deliveryStatus: o.deliveryStatus || 'pending',
+              trackingCode: o.trackingCode,
+              createdAt: o.createdAt || new Date().toISOString(),
+              items: [
+                {
+                  id: o.service?.id?.toString() || '1',
+                  serviceTitle: o.service?.name || 'Home Service',
+                  subName: o.trackingCode ? `Tracking: ${o.trackingCode}` : undefined,
+                  image: o.service?.bannerImage || o.service?.serviceIcon || '/service-banners/banner_cleaning.png',
+                  price: o.grandTotal || 0,
+                  date: o.serviceDate || o.createdAt?.split('T')[0] || new Date().toISOString().split('T')[0],
+                  time: o.time || '10:00 AM - 12:00 PM',
+                  qty: 1,
+                }
+              ]
+            }));
+            setBookings(mappedOrders);
+            saveBookings(mappedOrders);
           }
         })
         .catch(() => {});

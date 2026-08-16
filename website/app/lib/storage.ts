@@ -15,6 +15,9 @@ export interface Booking {
   items: CartItem[];
   total: number;
   payment: 'online' | 'cod';
+  paymentStatus?: string;
+  deliveryStatus?: string;
+  trackingCode?: string;
   createdAt: string;
 }
 
