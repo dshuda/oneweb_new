@@ -21,23 +21,44 @@ public class CustomersAdminController : ControllerBase
     [HttpGet]
     public async Task<IActionResult> GetAll()
     {
-        var customers = await _dbContext.Users
+        var users = await _dbContext.Users
             .Where(u => u.UserType == "customer")
             .OrderByDescending(u => u.CreatedAt)
-            .Select(u => new
+            .ToListAsync();
+
+        var customerIds = users.Select(u => u.Id).ToList();
+        var allOrders = await _dbContext.Orders
+            .Where(o => customerIds.Contains(o.UserId))
+            .Select(o => new { o.UserId, o.GrandTotal, o.CreatedAt })
+            .ToListAsync();
+
+        var ordersByCustomer = allOrders.GroupBy(o => o.UserId).ToDictionary(
+            g => g.Key,
+            g => new
+            {
+                Count = g.Count(),
+                Spent = g.Sum(o => o.GrandTotal ?? 0),
+                LastOrder = g.Max(o => (DateTime?)o.CreatedAt)
+            }
+        );
+
+        var customers = users.Select(u =>
+        {
+            ordersByCustomer.TryGetValue(u.Id, out var stats);
+            return new
             {
                 id = u.Id,
                 name = u.Name,
                 email = u.Email,
                 phone = u.Phone,
                 address = u.Address,
-                orders = _dbContext.Orders.Count(o => o.UserId == u.Id),
-                spent = (decimal)(_dbContext.Orders.Where(o => o.UserId == u.Id).Sum(o => (double?)o.GrandTotal) ?? 0),
-                lastOrderAt = _dbContext.Orders.Where(o => o.UserId == u.Id).Max(o => o.CreatedAt),
+                orders = stats?.Count ?? 0,
+                spent = stats?.Spent ?? 0,
+                lastOrderAt = stats?.LastOrder,
                 createdAt = u.CreatedAt,
                 status = u.Status && !u.IsBanned
-            })
-            .ToListAsync();
+            };
+        }).ToList();
 
         return ApiResponseFactory.Ok(customers, HttpContext);
     }
@@ -45,41 +66,45 @@ public class CustomersAdminController : ControllerBase
     [HttpGet("{id}")]
     public async Task<IActionResult> GetById(long id)
     {
-        var customer = await _dbContext.Users
-            .Where(u => u.Id == id && u.UserType == "customer")
-            .Select(u => new
+        var user = await _dbContext.Users
+            .FirstOrDefaultAsync(u => u.Id == id && u.UserType == "customer");
+
+        if (user == null)
+            return NotFound(new { message = "Customer not found" });
+
+        var orders = await _dbContext.Orders
+            .Where(o => o.UserId == id)
+            .OrderByDescending(o => o.CreatedAt)
+            .ToListAsync();
+
+        var totalSpent = orders.Sum(o => o.GrandTotal ?? 0);
+        var lastOrder = orders.FirstOrDefault()?.CreatedAt;
+
+        var result = new
+        {
+            id = user.Id,
+            name = user.Name,
+            email = user.Email,
+            phone = user.Phone,
+            address = user.Address,
+            orders = orders.Count,
+            spent = totalSpent,
+            lastOrderAt = lastOrder,
+            createdAt = user.CreatedAt,
+            status = user.Status && !user.IsBanned,
+            recentOrders = orders.Take(10).Select(o => new
             {
-                id = u.Id,
-                name = u.Name,
-                email = u.Email,
-                phone = u.Phone,
-                address = u.Address,
-                orders = _dbContext.Orders.Count(o => o.UserId == u.Id),
-                spent = (decimal)(_dbContext.Orders.Where(o => o.UserId == u.Id).Sum(o => (double?)o.GrandTotal) ?? 0),
-                lastOrderAt = _dbContext.Orders.Where(o => o.UserId == u.Id).Max(o => o.CreatedAt),
-                createdAt = u.CreatedAt,
-                status = u.Status && !u.IsBanned,
-                recentOrders = _dbContext.Orders
-                    .Where(o => o.UserId == u.Id)
-                    .OrderByDescending(o => o.CreatedAt)
-                    .Take(10)
-                    .Select(o => new
-                    {
-                        id = o.Id,
-                        trackingCode = o.TrackingCode,
-                        shippingAddress = o.ShippingAddress,
-                        grandTotal = o.GrandTotal,
-                        deliveryStatus = o.DeliveryStatus,
-                        paymentStatus = o.PaymentStatus,
-                        createdAt = o.CreatedAt
-                    })
-                    .ToList()
-            })
-            .FirstOrDefaultAsync();
+                id = o.Id,
+                trackingCode = o.TrackingCode,
+                shippingAddress = o.ShippingAddress,
+                grandTotal = o.GrandTotal,
+                deliveryStatus = o.DeliveryStatus,
+                paymentStatus = o.PaymentStatus,
+                createdAt = o.CreatedAt
+            }).ToList()
+        };
 
-        if (customer == null)
-            return NotFound();
-
-        return ApiResponseFactory.Ok(customer, HttpContext);
+        return ApiResponseFactory.Ok(result, HttpContext);
     }
 }
+
