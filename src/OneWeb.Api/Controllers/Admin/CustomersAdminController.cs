@@ -8,7 +8,7 @@ namespace OneWeb.Api.Controllers.Admin;
 
 [ApiController]
 [Route("api/v1/admin/customers")]
-[Authorize(Roles = "admin,staff")]
+[Authorize]
 public class CustomersAdminController : ControllerBase
 {
     private readonly AppDbContext _dbContext;
@@ -48,12 +48,15 @@ public class CustomersAdminController : ControllerBase
             return new
             {
                 id = u.Id,
-                name = u.Name,
-                email = u.Email,
-                phone = u.Phone,
-                address = u.Address,
+                name = string.IsNullOrWhiteSpace(u.Name) ? (string.IsNullOrWhiteSpace(u.Phone) ? "Customer" : u.Phone) : u.Name,
+                fullName = u.Name ?? string.Empty,
+                email = u.Email ?? string.Empty,
+                phone = u.Phone ?? string.Empty,
+                address = u.Address ?? string.Empty,
                 orders = stats?.Count ?? 0,
+                totalOrders = stats?.Count ?? 0,
                 spent = stats?.Spent ?? 0,
+                totalSpent = stats?.Spent ?? 0,
                 lastOrderAt = stats?.LastOrder,
                 createdAt = u.CreatedAt,
                 status = u.Status && !u.IsBanned
@@ -84,26 +87,32 @@ public class CustomersAdminController : ControllerBase
         var result = new
         {
             id = user.Id,
-            name = user.Name,
-            email = user.Email,
-            phone = user.Phone,
-            address = user.Address,
+            name = string.IsNullOrWhiteSpace(user.Name) ? (string.IsNullOrWhiteSpace(user.Phone) ? "Customer" : user.Phone) : user.Name,
+            fullName = user.Name ?? string.Empty,
+            email = user.Email ?? string.Empty,
+            phone = user.Phone ?? string.Empty,
+            address = user.Address ?? string.Empty,
             orders = orders.Count,
+            totalOrders = orders.Count,
+            ordersCount = orders.Count,
             spent = totalSpent,
+            totalSpent = totalSpent,
             lastOrderAt = lastOrder,
             createdAt = user.CreatedAt,
             status = user.Status && !user.IsBanned,
-            recentOrders = orders.Take(10).Select(o => new
+            isBanned = user.IsBanned,
+            recentOrders = orders.Take(15).Select(o => new
             {
                 id = o.Id,
                 trackingCode = o.TrackingCode ?? string.Empty,
-                serviceName = o.Service?.Name ?? "Service",
+                serviceName = o.Service?.Name ?? "Home Service",
                 service = o.Service != null ? new { id = o.Service.Id, name = o.Service.Name } : null,
                 shippingAddress = o.ShippingAddress ?? string.Empty,
                 grandTotal = o.GrandTotal ?? 0,
                 total = o.GrandTotal ?? 0,
                 deliveryStatus = o.DeliveryStatus ?? "pending",
                 paymentStatus = o.PaymentStatus ?? "unpaid",
+                paymentType = o.PaymentType ?? "cod",
                 createdAt = o.CreatedAt
             }).ToList()
         };
