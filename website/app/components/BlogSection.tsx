@@ -43,10 +43,16 @@ const fallbackBlogs: BlogItem[] = [
 
 async function getBlogs(): Promise<BlogItem[]> {
   try {
-    const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5102';
-    const res = await fetch(`${apiUrl}/api/v1/blogs`, {
+    const backendUrl = process.env.INTERNAL_API_URL || (typeof window === 'undefined' ? 'http://127.0.0.1:5102' : '');
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 2000);
+
+    const res = await fetch(`${backendUrl}/api/v1/blogs`, {
       cache: 'no-store',
+      signal: controller.signal,
     });
+    clearTimeout(timeoutId);
+
     if (res.ok) {
       const data = await res.json();
       if (data?.items && Array.isArray(data.items) && data.items.length > 0) {
@@ -54,7 +60,7 @@ async function getBlogs(): Promise<BlogItem[]> {
       }
     }
   } catch (error) {
-    console.error('Failed to fetch blogs from API, using fallback:', error);
+    // Fast fallback
   }
   return fallbackBlogs.slice(0, 4);
 }

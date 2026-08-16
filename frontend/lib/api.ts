@@ -1,6 +1,6 @@
 import axios, { AxiosInstance } from 'axios';
 
-const BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://104.248.232.169';
+const BASE_URL = process.env.NEXT_PUBLIC_API_URL || (typeof window !== 'undefined' ? '' : 'http://127.0.0.1:5102');
 
 const api: AxiosInstance = axios.create({
   baseURL: BASE_URL,
@@ -18,3 +18,4 @@ api.interceptors.request.use(
 
 export default api;
 export { BASE_URL };
+
