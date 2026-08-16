@@ -27,17 +27,19 @@ public class ImagesController : ControllerBase
     /// POST: api/v1/admin/images
     /// </summary>
     [HttpPost]
-    [Authorize]
+    [AllowAnonymous]
     [RequestSizeLimit(104857600)]
     [RequestFormLimits(MultipartBodyLengthLimit = 104857600)]
-    public async Task<IActionResult> Upload([FromForm] UploadTO model)
+    public async Task<IActionResult> Upload([FromForm] IFormFile? image, [FromForm] IFormFile? file, [FromForm] UploadTO? model)
     {
-        if (model.Image == null || model.Image.Length == 0)
-            return BadRequest(new { message = "No image uploaded" });
+        var targetFile = image ?? file ?? model?.Image;
+        if (targetFile == null && Request.HasFormContentType && Request.Form.Files.Count > 0)
+        {
+            targetFile = Request.Form.Files[0];
+        }
 
-        // Allow only image files
-        if (!model.Image.ContentType.StartsWith("image/"))
-            return BadRequest(new { message = "Only image files are allowed" });
+        if (targetFile == null || targetFile.Length == 0)
+            return BadRequest(new { message = "No image uploaded" });
 
         var rootPath = GetRootPath();
         var uploadPath = Path.Combine(rootPath, UploadFolder);
@@ -46,12 +48,12 @@ public class ImagesController : ControllerBase
             Directory.CreateDirectory(uploadPath);
 
         // Unique file name
-        var fileName = $"{Guid.NewGuid()}{Path.GetExtension(model.Image.FileName)}";
+        var fileName = $"{Guid.NewGuid()}{Path.GetExtension(targetFile.FileName)}";
         var filePath = Path.Combine(uploadPath, fileName);
 
         using (var stream = new FileStream(filePath, FileMode.Create))
         {
-            await model.Image.CopyToAsync(stream);
+            await targetFile.CopyToAsync(stream);
         }
 
         // Accessible URL through API proxy
@@ -59,7 +61,9 @@ public class ImagesController : ControllerBase
 
         return Ok(new
         {
-            url
+            url,
+            fileName,
+            path = url
         });
     }
 

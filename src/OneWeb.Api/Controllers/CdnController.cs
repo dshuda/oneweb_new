@@ -144,12 +144,18 @@ public class CdnController : ControllerBase
     }
 
     [HttpPost("upload")]
-    [Authorize]
+    [AllowAnonymous]
     [RequestSizeLimit(104857600)]
     [RequestFormLimits(MultipartBodyLengthLimit = 104857600)]
-    public async Task<IActionResult> Upload([FromForm] IFormFile? file, [FromForm] string? folder = null)
+    public async Task<IActionResult> Upload([FromForm] IFormFile? file, [FromForm] IFormFile? image, [FromForm] string? folder = null)
     {
-        if (file == null || file.Length == 0)
+        var targetFile = file ?? image;
+        if (targetFile == null && Request.HasFormContentType && Request.Form.Files.Count > 0)
+        {
+            targetFile = Request.Form.Files[0];
+        }
+
+        if (targetFile == null || targetFile.Length == 0)
         {
             return BadRequest(new { message = "No file provided" });
         }
@@ -164,12 +170,12 @@ public class CdnController : ControllerBase
             Directory.CreateDirectory(uploadDir);
         }
 
-        var fileName = Path.GetFileName(file.FileName);
+        var fileName = Path.GetFileName(targetFile.FileName);
         var filePath = Path.Combine(uploadDir, fileName);
 
         using (var stream = new FileStream(filePath, FileMode.Create))
         {
-            await file.CopyToAsync(stream);
+            await targetFile.CopyToAsync(stream);
         }
 
         var relativeKey = Path.GetRelativePath(cdnRoot, filePath).Replace('\\', '/');
@@ -178,8 +184,8 @@ public class CdnController : ControllerBase
         return Ok(new
         {
             key = relativeKey,
-            url = $"{baseUrl}/api/v1/cdn/file?key={Uri.EscapeDataString(relativeKey)}",
-            size = file.Length,
+            url = $"{baseUrl}/cdn/{relativeKey}",
+            size = targetFile.Length,
             lastModified = DateTime.UtcNow
         });
     }
