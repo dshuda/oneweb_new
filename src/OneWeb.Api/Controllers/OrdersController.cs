@@ -47,20 +47,48 @@ public class OrdersController : ControllerBase
         if (userId <= 0)
             return Unauthorized(new { message = "User session expired or invalid. Please login again." });
 
+        DateOnly serviceDate = DateOnly.FromDateTime(DateTime.UtcNow);
+        if (!string.IsNullOrEmpty(request.ServiceDate))
+        {
+            var dateStr = request.ServiceDate.Contains('T') ? request.ServiceDate.Split('T')[0] : request.ServiceDate;
+            if (DateOnly.TryParse(dateStr, out var parsedDate))
+            {
+                serviceDate = parsedDate;
+            }
+            else if (DateTime.TryParse(request.ServiceDate, out var dt))
+            {
+                serviceDate = DateOnly.FromDateTime(dt);
+            }
+        }
+
+        TimeSpan? serviceTime = null;
+        if (!string.IsNullOrEmpty(request.Time))
+        {
+            var timePart = request.Time.Contains('-') ? request.Time.Split('-')[0].Trim() : request.Time.Trim();
+            if (TimeSpan.TryParse(timePart, out var parsedTime))
+            {
+                serviceTime = parsedTime;
+            }
+            else if (DateTime.TryParse(timePart, out var dt))
+            {
+                serviceTime = dt.TimeOfDay;
+            }
+        }
+
         var command = new CreateOrderCommand()
         {
             UserId = userId,
             PriceId = request.PriceId,
-            ServiceDate = request.ServiceDate,
-            Time = request.Time,
+            ServiceDate = serviceDate,
+            Time = serviceTime,
             ServiceId = request.ServiceId,
-            ShippingAddress = request.ShippingAddress,
+            ShippingAddress = request.ShippingAddress ?? "Dhaka, Bangladesh",
             AdditionalInfo = request.AdditionalInfo,
-            PaymentType = request.PaymentType,
+            PaymentType = request.PaymentType ?? "sslcommerz",
             CouponCode = request.CouponCode,
             Latitude = request.Latitude,
             Longitude = request.Longitude,
-            OrderFrom = request.OrderFrom
+            OrderFrom = request.OrderFrom ?? "web"
         };
 
         var result = await _mediator.Send(command);
@@ -101,20 +129,18 @@ public class OrdersController : ControllerBase
         return Ok(new { message = "Order cancelled" });
     }
 
-
     // DTOs for requests
     public record CreateOrderRequest(
-        int ServiceId,
-        int PriceId,
-        DateOnly ServiceDate,
-        TimeSpan Time,
-        string ShippingAddress,
+        long ServiceId,
+        long PriceId,
+        string? ServiceDate,
+        string? Time,
+        string? ShippingAddress,
         string? AdditionalInfo,
         string? PaymentType,
         string? CouponCode,
         string? Latitude,
         string? Longitude,
-        string OrderFrom = "web"
+        string? OrderFrom
     );
-
 }

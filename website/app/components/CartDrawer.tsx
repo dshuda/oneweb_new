@@ -134,8 +134,8 @@ export default function CartDrawer({
       const orderPayload = {
         serviceId: serviceIdNum,
         priceId: 0,
-        serviceDate: firstItem.date ? new Date(firstItem.date).toISOString() : new Date().toISOString(),
-        time: firstItem.time || '10:00 AM - 12:00 PM',
+        serviceDate: firstItem.date || new Date().toISOString().split('T')[0],
+        time: firstItem.time || '10:00 AM',
         shippingAddress: userAddress || 'Dhaka, Bangladesh',
         paymentType: payment === 'online' ? 'sslcommerz' : 'cod',
         couponCode: promoApplied ? PROMO_CODE : null,
@@ -151,10 +151,14 @@ export default function CartDrawer({
         body: JSON.stringify(orderPayload)
       });
 
-      const orderData = await orderRes.json();
+      const orderData = await orderRes.json().catch(() => null);
 
       if (!orderRes.ok || !orderData?.orderId) {
-        throw new Error(orderData?.message || 'Failed to place order.');
+        const errorMsg = orderData?.message 
+          || (orderData?.errors ? Object.values(orderData.errors).flat().join(', ') : null)
+          || orderData?.title 
+          || 'Failed to place order.';
+        throw new Error(errorMsg);
       }
 
       // 2. If online payment -> initiate SSLCommerz gateway & redirect
