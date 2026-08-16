@@ -29,25 +29,6 @@
           }
         }
       },
-      "AWSSDK.Core/4.0.100.9": {
-        "runtime": {
-          "lib/net8.0/AWSSDK.Core.dll": {
-            "assemblyVersion": "4.0.0.0",
-            "fileVersion": "4.0.100.9"
-          }
-        }
-      },
-      "AWSSDK.S3/4.0.101.7": {
-        "dependencies": {
-          "AWSSDK.Core": "4.0.100.9"
-        },
-        "runtime": {
-          "lib/net8.0/AWSSDK.S3.dll": {
-            "assemblyVersion": "4.0.0.0",
-            "fileVersion": "4.0.101.7"
-          }
-        }
-      },
       "BCrypt.Net-Next/4.1.0": {
         "runtime": {
           "lib/net10.0/BCrypt.Net-Next.dll": {
@@ -310,25 +291,6 @@
           }
         }
       },
-      "NetTopologySuite/2.6.0": {
-        "runtime": {
-          "lib/netstandard2.1/NetTopologySuite.dll": {
-            "assemblyVersion": "2.0.0.0",
-            "fileVersion": "2.0.0.0"
-          }
-        }
-      },
-      "NetTopologySuite.IO.PostGis/2.1.0": {
-        "dependencies": {
-          "NetTopologySuite": "2.6.0"
-        },
-        "runtime": {
-          "lib/netstandard2.1/NetTopologySuite.IO.PostGis.dll": {
-            "assemblyVersion": "2.0.0.0",
-            "fileVersion": "2.0.0.0"
-          }
-        }
-      },
       "Newtonsoft.Json/13.0.4": {
         "runtime": {
           "lib/net6.0/Newtonsoft.Json.dll": {
@@ -355,31 +317,6 @@
           "lib/net10.0/Npgsql.EntityFrameworkCore.PostgreSQL.dll": {
             "assemblyVersion": "10.0.1.0",
             "fileVersion": "10.0.1.0"
-          }
-        }
-      },
-      "Npgsql.EntityFrameworkCore.PostgreSQL.NetTopologySuite/10.0.1": {
-        "dependencies": {
-          "Npgsql.EntityFrameworkCore.PostgreSQL": "10.0.1",
-          "Npgsql.NetTopologySuite": "10.0.2"
-        },
-        "runtime": {
-          "lib/net10.0/Npgsql.EntityFrameworkCore.PostgreSQL.NetTopologySuite.dll": {
-            "assemblyVersion": "10.0.1.0",
-            "fileVersion": "10.0.1.0"
-          }
-        }
-      },
-      "Npgsql.NetTopologySuite/10.0.2": {
-        "dependencies": {
-          "NetTopologySuite": "2.6.0",
-          "NetTopologySuite.IO.PostGis": "2.1.0",
-          "Npgsql": "10.0.2"
-        },
-        "runtime": {
-          "lib/net8.0/Npgsql.NetTopologySuite.dll": {
-            "assemblyVersion": "10.0.2.0",
-            "fileVersion": "10.0.2.0"
           }
         }
       },
@@ -504,9 +441,6 @@
         }
       },
       "OneWeb.Domain/1.0.0": {
-        "dependencies": {
-          "NetTopologySuite": "2.6.0"
-        },
         "runtime": {
           "OneWeb.Domain.dll": {
             "assemblyVersion": "1.0.0.0",
@@ -516,13 +450,11 @@
       },
       "OneWeb.Infrastructure/1.0.0": {
         "dependencies": {
-          "AWSSDK.S3": "4.0.101.7",
           "BCrypt.Net-Next": "4.1.0",
           "EFCore.NamingConventions": "10.0.1",
           "FirebaseAdmin": "3.5.0",
           "Microsoft.Extensions.Caching.StackExchangeRedis": "10.0.7",
           "Npgsql.EntityFrameworkCore.PostgreSQL": "10.0.1",
-          "Npgsql.EntityFrameworkCore.PostgreSQL.NetTopologySuite": "10.0.1",
           "OneWeb.Domain": "1.0.0",
           "StackExchange.Redis": "2.12.14",
           "System.IdentityModel.Tokens.Jwt": "8.18.0"
@@ -548,20 +480,6 @@
       "sha512": "sha512-VNEky8JA15ci+oIDRGHITOGOpV4dILsf8pnn24QhDl2urtqgJ2IXiS/V2EtGU17P/+f6OeFQPJETaZXV9QOIZg==",
       "path": "automapper/16.1.1",
       "hashPath": "automapper.16.1.1.nupkg.sha512"
-    },
-    "AWSSDK.Core/4.0.100.9": {
-      "type": "package",
-      "serviceable": true,
-      "sha512": "sha512-OPYy41jZjXwxxcYRotaq24HDrwUnVtBB/mvg1IwB9D1ICXAtHqMa1sp2hpmlVJCZwjlcrPcTCJIejInvV1vp5g==",
-      "path": "awssdk.core/4.0.100.9",
-      "hashPath": "awssdk.core.4.0.100.9.nupkg.sha512"
-    },
-    "AWSSDK.S3/4.0.101.7": {
-      "type": "package",
-      "serviceable": true,
-      "sha512": "sha512-AwS/C0HYSQRpMnv/FBvz0K4bpL++ENEm2mnzGlT32RBBdGdjrzV1oDQk4R/MurTepQjtDgtG1vwG2CaD+t7JPA==",
-      "path": "awssdk.s3/4.0.101.7",
-      "hashPath": "awssdk.s3.4.0.101.7.nupkg.sha512"
     },
     "BCrypt.Net-Next/4.1.0": {
       "type": "package",
@@ -738,20 +656,6 @@
       "path": "microsoft.openapi/2.4.1",
       "hashPath": "microsoft.openapi.2.4.1.nupkg.sha512"
     },
-    "NetTopologySuite/2.6.0": {
-      "type": "package",
-      "serviceable": true,
-      "sha512": "sha512-1B1OTacTd4QtFyBeuIOcThwSSLUdRZU3bSFIwM8vk36XiZlBMi3K36u74e4OqwwHRHUuJC1PhbDx4hyI266X1Q==",
-      "path": "nettopologysuite/2.6.0",
-      "hashPath": "nettopologysuite.2.6.0.nupkg.sha512"
-    },
-    "NetTopologySuite.IO.PostGis/2.1.0": {
-      "type": "package",
-      "serviceable": true,
-      "sha512": "sha512-3W8XTFz8iP6GQ5jDXK1/LANHiU+988k1kmmuPWNKcJLpmSg6CvFpbTpz+s4+LBzkAp64wHGOldSlkSuzYfrIKA==",
-      "path": "nettopologysuite.io.postgis/2.1.0",
-      "hashPath": "nettopologysuite.io.postgis.2.1.0.nupkg.sha512"
-    },
     "Newtonsoft.Json/13.0.4": {
       "type": "package",
       "serviceable": true,
@@ -772,20 +676,6 @@
       "sha512": "sha512-P6EwH0Q4xkaA264iNZDqCPhWt8pscfUGxXazDQg4noBfqjoOlk4hKWfvBjF9ZX3R/9JybRmmJfmxr2iBMj0EpA==",
       "path": "npgsql.entityframeworkcore.postgresql/10.0.1",
       "hashPath": "npgsql.entityframeworkcore.postgresql.10.0.1.nupkg.sha512"
-    },
-    "Npgsql.EntityFrameworkCore.PostgreSQL.NetTopologySuite/10.0.1": {
-      "type": "package",
-      "serviceable": true,
-      "sha512": "sha512-Fcx8k5cSF7cGeXMeguLwyV+wTcKbmhojCse2WBXfHlEQNXILpI1My7H6rvPT8n3fI4TxZiYq/LWO2vVGBD3FHA==",
-      "path": "npgsql.entityframeworkcore.postgresql.nettopologysuite/10.0.1",
-      "hashPath": "npgsql.entityframeworkcore.postgresql.nettopologysuite.10.0.1.nupkg.sha512"
-    },
-    "Npgsql.NetTopologySuite/10.0.2": {
-      "type": "package",
-      "serviceable": true,
-      "sha512": "sha512-WNM5ZHATFj0dSMJ/4vlbgMWBgP0ElMwsGiHR0PwzwflNS+IXbX8xxNZyLp4veCLcr5tDCWwMh9Lw7nwUxWkzvg==",
-      "path": "npgsql.nettopologysuite/10.0.2",
-      "hashPath": "npgsql.nettopologysuite.10.0.2.nupkg.sha512"
     },
     "Pipelines.Sockets.Unofficial/2.2.8": {
       "type": "package",
