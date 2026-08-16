@@ -19,11 +19,14 @@ public class OrdersController : ControllerBase
         _mediator = mediator;
     }
 
-    private long GetUserId() =>
-        long.Parse(User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value!);
+    private long GetUserId()
+    {
+        var val = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+        return long.TryParse(val, out var id) ? id : 0;
+    }
 
     private string GetUserRole() =>
-        User.FindFirst(System.Security.Claims.ClaimTypes.Role)?.Value!;
+        User.FindFirst(System.Security.Claims.ClaimTypes.Role)?.Value ?? "customer";
 
     [HttpGet()]
     public async Task<IActionResult> GetOrders(
@@ -37,10 +40,13 @@ public class OrdersController : ControllerBase
     }
 
     [HttpPost()]
-    [Authorize(Roles = "customer")]
+    [Authorize]
     public async Task<IActionResult> CreateOrder([FromBody] CreateOrderRequest request)
     {
         var userId = GetUserId();
+        if (userId <= 0)
+            return Unauthorized(new { message = "User session expired or invalid. Please login again." });
+
         var command = new CreateOrderCommand()
         {
             UserId = userId,

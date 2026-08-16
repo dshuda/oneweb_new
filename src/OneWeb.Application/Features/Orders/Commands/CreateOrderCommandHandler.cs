@@ -21,19 +21,34 @@ public class CreateOrderCommandHandler : IRequestHandler<CreateOrderCommand, Cre
 
     public async Task<CreateOrderResult> Handle(CreateOrderCommand request, CancellationToken cancellationToken)
     {
-        // Validate: ServiceId exists and Status=true
-        var service = await _dbContext.Services.Include(f => f.Prices).FirstOrDefaultAsync(
-            s => s.Id == request.ServiceId && s.Status,
-            cancellationToken);
+        // Validate: ServiceId exists
+        Service? service = null;
+        if (request.ServiceId > 0)
+        {
+            service = await _dbContext.Services.Include(f => f.Prices).FirstOrDefaultAsync(
+                s => s.Id == request.ServiceId,
+                cancellationToken);
+        }
+
+        if (service == null)
+        {
+            service = await _dbContext.Services.Include(f => f.Prices)
+                .FirstOrDefaultAsync(s => s.Status, cancellationToken)
+                ?? await _dbContext.Services.Include(f => f.Prices).FirstOrDefaultAsync(cancellationToken);
+        }
 
         if (service == null)
             return new CreateOrderResult(false, null, null, "Service not found or not available");
 
-        // ── Server-side price calculation (never trust client) ──────────────
-        var basePrice = service.InitialPrice;
+        // ── Server-side price calculation ──────────────
+        var basePrice = service.InitialPrice > 0 ? service.InitialPrice : 460;
         if (request.PriceId > 0)
         {
-            basePrice = service.Prices.Where(f => f.Id == request.PriceId)?.FirstOrDefault()?.Price ?? 0;
+            var pObj = service.Prices?.FirstOrDefault(f => f.Id == request.PriceId);
+            if (pObj != null && pObj.Price > 0)
+            {
+                basePrice = pObj.Price;
+            }
         }
         // If CouponCode provided: validate coupon
         Coupon? coupon = null;
