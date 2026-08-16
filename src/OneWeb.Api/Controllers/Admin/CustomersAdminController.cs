@@ -22,7 +22,7 @@ public class CustomersAdminController : ControllerBase
     public async Task<IActionResult> GetAll()
     {
         var users = await _dbContext.Users
-            .Where(u => u.UserType == "customer")
+            .Where(u => u.UserType == "customer" || u.UserType == "Customer" || string.IsNullOrEmpty(u.UserType))
             .OrderByDescending(u => u.CreatedAt)
             .ToListAsync();
 
@@ -67,12 +67,13 @@ public class CustomersAdminController : ControllerBase
     public async Task<IActionResult> GetById(long id)
     {
         var user = await _dbContext.Users
-            .FirstOrDefaultAsync(u => u.Id == id && u.UserType == "customer");
+            .FirstOrDefaultAsync(u => u.Id == id);
 
         if (user == null)
             return NotFound(new { message = "Customer not found" });
 
         var orders = await _dbContext.Orders
+            .Include(o => o.Service)
             .Where(o => o.UserId == id)
             .OrderByDescending(o => o.CreatedAt)
             .ToListAsync();
@@ -95,11 +96,14 @@ public class CustomersAdminController : ControllerBase
             recentOrders = orders.Take(10).Select(o => new
             {
                 id = o.Id,
-                trackingCode = o.TrackingCode,
-                shippingAddress = o.ShippingAddress,
-                grandTotal = o.GrandTotal,
-                deliveryStatus = o.DeliveryStatus,
-                paymentStatus = o.PaymentStatus,
+                trackingCode = o.TrackingCode ?? string.Empty,
+                serviceName = o.Service?.Name ?? "Service",
+                service = o.Service != null ? new { id = o.Service.Id, name = o.Service.Name } : null,
+                shippingAddress = o.ShippingAddress ?? string.Empty,
+                grandTotal = o.GrandTotal ?? 0,
+                total = o.GrandTotal ?? 0,
+                deliveryStatus = o.DeliveryStatus ?? "pending",
+                paymentStatus = o.PaymentStatus ?? "unpaid",
                 createdAt = o.CreatedAt
             }).ToList()
         };
