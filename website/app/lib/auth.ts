@@ -35,10 +35,10 @@ export function loadAuthUser(): AuthUser | null {
 
 export function saveAuthUser(user: AuthUser): void {
   write(AUTH_KEY, user);
-  // Mirror the session in a cookie so route middleware (which cannot read
-  // localStorage) can protect the profile page.
+  // Mirror the session in a cookie so route middleware can protect the profile page.
   if (typeof document !== 'undefined') {
-    document.cookie = `${AUTH_COOKIE}=1; path=/; max-age=${COOKIE_MAX_AGE}; samesite=lax; secure`;
+    const isSecure = typeof window !== 'undefined' && window.location.protocol === 'https:';
+    document.cookie = `${AUTH_COOKIE}=1; path=/; max-age=${COOKIE_MAX_AGE}; samesite=lax${isSecure ? '; secure' : ''}`;
   }
 }
 
