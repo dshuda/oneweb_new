@@ -34,19 +34,28 @@ import { formatDateParts } from '@/lib/utils';
 
 type Tab = 'overview' | 'bookings' | 'settings';
 
-function formatPhone(phone: string): string {
-  return phone.length === 11
-    ? `${phone.slice(0, 5)} ${phone.slice(5)}`
-    : phone;
+function formatPhone(phone?: string): string {
+  if (!phone) return '';
+  const digits = phone.replace(/\D/g, '');
+  if (digits.length === 11) {
+    return `${digits.slice(0, 5)} ${digits.slice(5)}`;
+  }
+  return phone;
 }
 
-function formatBookedAt(iso: string): string {
-  const d = new Date(iso);
-  return d.toLocaleDateString('en-US', {
-    day: 'numeric',
-    month: 'short',
-    year: 'numeric',
-  });
+function formatBookedAt(iso?: string): string {
+  if (!iso) return 'Recently';
+  try {
+    const d = new Date(iso);
+    if (isNaN(d.getTime())) return 'Recently';
+    return d.toLocaleDateString('en-US', {
+      day: 'numeric',
+      month: 'short',
+      year: 'numeric',
+    });
+  } catch {
+    return 'Recently';
+  }
 }
 
 function getStatusBadge(status?: string) {
@@ -148,7 +157,7 @@ function BookingRow({
 }
 
 export default function Profile() {
-  const { user, openAuth, logout } = useAuth();
+  const { user, authLoaded, openAuth, logout } = useAuth();
   const router = useRouter();
   const [tab, setTab] = useState<Tab>('overview');
   const [bookings, setBookings] = useState<Booking[]>([]);
@@ -277,6 +286,14 @@ export default function Profile() {
     window.setTimeout(() => setSavedFlash(false), 2000);
   };
 
+  if (!authLoaded) {
+    return (
+      <div className="mx-auto flex min-h-[400px] max-w-4xl items-center justify-center px-4 pb-20 pt-32 sm:px-6 lg:pt-36">
+        <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+      </div>
+    );
+  }
+
   if (!user) {
     /* ---- Not signed in ---- */
     return (
@@ -314,11 +331,11 @@ export default function Profile() {
     );
   }
 
-  const isDemo = user.phone === DEMO_PHONE;
-  const displayName = profile.name || user.name || (user.phone ? formatPhone(user.phone) : 'OneTap User');
-  const totalSpend = bookings.reduce((sum, b) => sum + b.total, 0);
+  const isDemo = user?.phone === DEMO_PHONE;
+  const displayName = profile.name || user?.name || (user?.phone ? formatPhone(user.phone) : 'OneTap User');
+  const totalSpend = bookings.reduce((sum, b) => sum + (b?.total || 0), 0);
   const totalServices = bookings.reduce(
-    (sum, b) => sum + b.items.reduce((s, i) => s + i.qty, 0),
+    (sum, b) => sum + (Array.isArray(b?.items) ? b.items.reduce((s, i) => s + (i?.qty || 1), 0) : 0),
     0,
   );
 
