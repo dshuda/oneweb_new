@@ -75,11 +75,10 @@ export default function AppPromotion() {
             {/* Right - in-flow image on mobile/tablet; hidden on desktop where the absolute bleed version takes over */}
             <div className="flex justify-center lg:hidden">
               <Image
-                src="/mockup-hand.svg"
+                src="/mockup-hand.webp"
                 alt="One Tap Service mobile app held in hand"
                 width={745}
                 height={526}
-                priority
                 className="w-full max-w-xl"
               />
             </div>
@@ -87,11 +86,10 @@ export default function AppPromotion() {
 
           {/* Mockup image bleeding past the bottom-right corner (desktop only) */}
           <Image
-            src="/mockup-hand.svg"
+            src="/mockup-hand.webp"
             alt="One Tap Service mobile app held in hand"
             width={745}
             height={526}
-            priority
             className="pointer-events-none absolute right-6 bottom-4 hidden h-auto w-[340px] translate-y-14 lg:right-10 lg:block lg:w-[400px] lg:translate-x-2 lg:translate-y-16 xl:w-[440px]"
           />
         </div>

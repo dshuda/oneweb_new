@@ -66,7 +66,7 @@ export default function HeroSection() {
       {/* Banner image — headline & subtitle are baked into the artwork */}
       <div className="relative h-[360px] w-full overflow-hidden sm:h-[480px] lg:h-auto lg:aspect-[1920/666]">
         <Image
-          src="/banner_hero.png"
+          src="/banner_hero.webp"
           alt="Expert Services, One tap away. Making everyday home services faster, easier, and more reliable with skilled professionals just a tap away."
           fill
           priority
