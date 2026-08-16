@@ -101,16 +101,18 @@ function BookingRow({
   booking: Booking;
   onDelete: (id: string) => void;
 }) {
-  const first = booking.items[0];
+  const items = Array.isArray(booking?.items) ? booking.items : [];
+  const first = items[0];
   const label = first
     ? first.subName
       ? `${first.serviceTitle} (${first.subName})`
-      : first.serviceTitle
+      : first.serviceTitle || 'Service'
     : 'Service';
-  const { dayShort, dayNumber } = first
+  const { dayShort, dayNumber } = first && first.date
     ? formatDateParts(first.date)
     : { dayShort: '', dayNumber: '' };
-  const serviceCount = booking.items.reduce((sum, i) => sum + i.qty, 0);
+  const serviceCount = items.reduce((sum, i) => sum + (i?.qty || 1), 0);
+  const totalAmount = typeof booking?.total === 'number' ? booking.total : 0;
 
   return (
     <div className="rounded-2xl border border-border/80 bg-white p-4 shadow-sm transition-shadow hover:shadow-md">
@@ -121,22 +123,22 @@ function BookingRow({
             {first && (
               <span className="flex items-center gap-1">
                 <CalendarDays size={12} className="shrink-0 text-primary" />
-                {dayShort} {dayNumber} · {first.time}
+                {dayShort} {dayNumber} · {first.time || 'Scheduled'}
               </span>
             )}
-            <span>· Booked {formatBookedAt(booking.createdAt)}</span>
-            <span>· {booking.payment === 'cod' ? 'Cash on Delivery' : 'Online (SSLCommerz)'}</span>
-            {booking.paymentStatus === 'paid' && (
+            <span>· Booked {formatBookedAt(booking?.createdAt)}</span>
+            <span>· {booking?.payment === 'cod' ? 'Cash on Delivery' : 'Online (SSLCommerz)'}</span>
+            {booking?.paymentStatus === 'paid' && (
               <span className="font-semibold text-green-600">· Paid</span>
             )}
           </p>
         </div>
         <div className="flex shrink-0 items-center gap-2.5">
-          {getStatusBadge(booking.deliveryStatus)}
+          {getStatusBadge(booking?.deliveryStatus)}
           <button
             type="button"
             aria-label="Delete booking"
-            onClick={() => onDelete(booking.id)}
+            onClick={() => onDelete(booking?.id)}
             className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/10 text-primary transition-colors hover:bg-primary/20"
           >
             <FiTrash2 size={14} />
@@ -146,10 +148,10 @@ function BookingRow({
       <div className="mt-3 flex items-center justify-between border-t border-border/70 pt-3 text-sm">
         <span className="text-muted-foreground">
           {serviceCount} {serviceCount === 1 ? 'service' : 'services'}
-          {booking.trackingCode && ` · Trk: ${booking.trackingCode}`}
+          {booking?.trackingCode && ` · Trk: ${booking.trackingCode}`}
         </span>
         <span className="font-bold text-primary">
-          ৳{booking.total.toLocaleString()}
+          ৳{totalAmount.toLocaleString()}
         </span>
       </div>
     </div>
