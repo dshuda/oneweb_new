@@ -40,27 +40,35 @@ public class CdnController : ControllerBase
             Directory.CreateDirectory(cdnRoot);
         }
 
-        var targetDir = string.IsNullOrWhiteSpace(folder)
+        var cleanFolder = folder?.Trim().Trim('/');
+        var targetDir = string.IsNullOrWhiteSpace(cleanFolder)
             ? cdnRoot
-            : Path.Combine(cdnRoot, folder.Replace('/', Path.DirectorySeparatorChar));
+            : Path.Combine(cdnRoot, cleanFolder.Replace('/', Path.DirectorySeparatorChar));
+
+        if (!Directory.Exists(targetDir))
+        {
+            Directory.CreateDirectory(targetDir);
+        }
 
         var items = new List<object>();
         var baseUrl = GetBaseUrl();
 
         if (Directory.Exists(targetDir))
         {
-            var files = Directory.GetFiles(targetDir, "*.*", SearchOption.AllDirectories)
+            var files = new DirectoryInfo(targetDir)
+                .GetFiles("*.*", SearchOption.AllDirectories)
+                .OrderByDescending(f => f.LastWriteTimeUtc)
                 .Take(take);
 
-            foreach (var filePath in files)
+            foreach (var fileInfo in files)
             {
-                var fileInfo = new FileInfo(filePath);
-                var relativePath = Path.GetRelativePath(cdnRoot, filePath).Replace('\\', '/');
+                var relativePath = Path.GetRelativePath(cdnRoot, fileInfo.FullName).Replace('\\', '/');
 
                 items.Add(new
                 {
                     key = relativePath,
-                    url = $"{baseUrl}/api/v1/cdn/file?key={Uri.EscapeDataString(relativePath)}",
+                    url = $"{baseUrl}/cdn/{relativePath}",
+                    fileUrl = $"{baseUrl}/api/v1/cdn/file?key={Uri.EscapeDataString(relativePath)}",
                     size = fileInfo.Length,
                     lastModified = fileInfo.LastWriteTimeUtc
                 });
@@ -162,7 +170,8 @@ public class CdnController : ControllerBase
 
         var rootPath = _environment.WebRootPath ?? Path.Combine(Directory.GetCurrentDirectory(), "wwwroot");
         var cdnRoot = Path.Combine(rootPath, "cdn");
-        var targetFolder = string.IsNullOrWhiteSpace(folder) ? "web" : folder.Replace('/', Path.DirectorySeparatorChar);
+        var rawFolder = (folder ?? (Request.HasFormContentType ? Request.Form["folder"].FirstOrDefault() : null))?.Trim().Trim('/');
+        var targetFolder = string.IsNullOrWhiteSpace(rawFolder) ? "web" : rawFolder.Replace('/', Path.DirectorySeparatorChar);
         var uploadDir = Path.Combine(cdnRoot, targetFolder);
 
         if (!Directory.Exists(uploadDir))
@@ -185,6 +194,7 @@ public class CdnController : ControllerBase
         {
             key = relativeKey,
             url = $"{baseUrl}/cdn/{relativeKey}",
+            fileUrl = $"{baseUrl}/api/v1/cdn/file?key={Uri.EscapeDataString(relativeKey)}",
             size = targetFile.Length,
             lastModified = DateTime.UtcNow
         });
