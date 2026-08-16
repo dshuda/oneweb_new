@@ -251,7 +251,11 @@ export default function Profile() {
 
   const handleLogout = () => {
     logout();
-    router.push('/');
+    if (typeof window !== 'undefined') {
+      window.location.href = '/';
+    } else {
+      router.push('/');
+    }
   };
 
   const handleDeleteBooking = (id: string) => {
@@ -435,7 +439,7 @@ export default function Profile() {
                     {displayName}
                   </p>
                   <p className="truncate text-xs text-muted-foreground">
-                    {formatPhone(user.phone)}
+                    {formatPhone(user?.phone)}
                   </p>
                 </div>
               </div>
@@ -743,7 +747,7 @@ export default function Profile() {
                   <p className="flex items-center gap-3 rounded-2xl bg-muted/40 px-4 py-3 text-sm">
                     <Phone size={16} className="shrink-0 text-primary" />
                     <span className="font-semibold text-foreground">
-                      {formatPhone(user.phone)}
+                      {formatPhone(user?.phone)}
                     </span>
                     {isDemo && (
                       <span className="ml-auto rounded-full bg-primary/10 px-2.5 py-0.5 text-xs font-bold text-primary">
