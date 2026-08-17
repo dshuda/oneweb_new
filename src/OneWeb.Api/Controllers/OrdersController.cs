@@ -2,8 +2,10 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using MediatR;
 using System.Security.Claims;
+using Microsoft.EntityFrameworkCore;
 using OneWeb.Application.Features.Orders.Commands;
 using OneWeb.Application.Features.Orders.Queries;
+using OneWeb.Infrastructure.Persistence;
 
 namespace OneWeb.Api.Controllers;
 
@@ -13,16 +15,43 @@ namespace OneWeb.Api.Controllers;
 public class OrdersController : ControllerBase
 {
     private readonly IMediator _mediator;
+    private readonly AppDbContext _dbContext;
 
-    public OrdersController(IMediator mediator)
+    public OrdersController(IMediator mediator, AppDbContext dbContext)
     {
         _mediator = mediator;
+        _dbContext = dbContext;
     }
 
     private long GetUserId()
     {
-        var val = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
-        return long.TryParse(val, out var id) ? id : 0;
+        var val = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value
+            ?? User.FindFirst("id")?.Value
+            ?? User.FindFirst("sub")?.Value
+            ?? User.FindFirst("nameid")?.Value
+            ?? User.FindFirst("userId")?.Value
+            ?? User.FindFirst(ClaimTypes.Name)?.Value;
+
+        if (long.TryParse(val, out var id) && id > 0)
+        {
+            return id;
+        }
+
+        var phone = User.FindFirst(ClaimTypes.MobilePhone)?.Value ?? User.FindFirst("phone")?.Value;
+        if (!string.IsNullOrEmpty(phone))
+        {
+            var u = _dbContext.Users.FirstOrDefault(x => x.Phone == phone);
+            if (u != null) return u.Id;
+        }
+
+        var email = User.FindFirst(ClaimTypes.Email)?.Value ?? User.FindFirst("email")?.Value;
+        if (!string.IsNullOrEmpty(email))
+        {
+            var u = _dbContext.Users.FirstOrDefault(x => x.Email == email);
+            if (u != null) return u.Id;
+        }
+
+        return 0;
     }
 
     private string GetUserRole() =>
@@ -46,7 +75,8 @@ public class OrdersController : ControllerBase
         var userId = GetUserId();
         if (userId <= 0)
         {
-            userId = 1;
+            var customer = await _dbContext.Users.FirstOrDefaultAsync(u => u.UserType == "customer" && u.Status);
+            userId = customer?.Id ?? 1;
         }
 
         DateOnly serviceDate = DateOnly.FromDateTime(DateTime.UtcNow);
