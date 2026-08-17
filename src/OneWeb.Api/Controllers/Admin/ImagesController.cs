@@ -27,6 +27,9 @@ public class ImagesController : ControllerBase
     /// POST: api/v1/admin/images
     /// </summary>
     [HttpPost]
+    [HttpPost("/api/v1/images")]
+    [HttpPost("/api/v1/admin/media/upload")]
+    [HttpPost("/api/v1/admin/assets/upload")]
     [AllowAnonymous]
     [RequestSizeLimit(104857600)]
     [RequestFormLimits(MultipartBodyLengthLimit = 104857600)]
@@ -62,8 +65,10 @@ public class ImagesController : ControllerBase
         return Ok(new
         {
             url,
+            imageUrl = url,
             fileName,
-            path = url
+            path = url,
+            success = true
         });
     }
 
@@ -111,6 +116,9 @@ public class ImagesController : ControllerBase
     /// GET: api/v1/admin/images
     /// </summary>
     [HttpGet]
+    [HttpGet("/api/v1/images")]
+    [HttpGet("/api/v1/admin/assets")]
+    [HttpGet("/api/v1/admin/media")]
     [Authorize]
     public IActionResult GetAll()
     {
@@ -121,7 +129,9 @@ public class ImagesController : ControllerBase
         {
             return Ok(new
             {
-                images = new List<ImageDto>()
+                images = new List<ImageDto>(),
+                items = new List<ImageDto>(),
+                data = new List<ImageDto>()
             });
         }
 
@@ -144,7 +154,9 @@ public class ImagesController : ControllerBase
 
         return Ok(new
         {
-            images = imageUrls
+            images = imageUrls,
+            items = imageUrls,
+            data = imageUrls
         });
     }
     /// <summary>
