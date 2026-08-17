@@ -53,26 +53,34 @@ public class CdnController : ControllerBase
         var items = new List<object>();
         var baseUrl = GetBaseUrl();
 
-        if (Directory.Exists(targetDir))
+        var targetFiles = new DirectoryInfo(targetDir)
+            .GetFiles("*.*", SearchOption.AllDirectories)
+            .Where(f => !f.Name.EndsWith(".gz", StringComparison.OrdinalIgnoreCase) && !f.Name.EndsWith(".br", StringComparison.OrdinalIgnoreCase))
+            .OrderByDescending(f => f.LastWriteTimeUtc)
+            .ToList();
+
+        // If target folder is empty, fallback to all assets across cdnRoot so user is never blocked
+        if (targetFiles.Count == 0 && targetDir != cdnRoot)
         {
-            var files = new DirectoryInfo(targetDir)
+            targetFiles = new DirectoryInfo(cdnRoot)
                 .GetFiles("*.*", SearchOption.AllDirectories)
+                .Where(f => !f.Name.EndsWith(".gz", StringComparison.OrdinalIgnoreCase) && !f.Name.EndsWith(".br", StringComparison.OrdinalIgnoreCase))
                 .OrderByDescending(f => f.LastWriteTimeUtc)
-                .Take(take);
+                .ToList();
+        }
 
-            foreach (var fileInfo in files)
+        foreach (var fileInfo in targetFiles.Take(take))
+        {
+            var relativePath = Path.GetRelativePath(cdnRoot, fileInfo.FullName).Replace('\\', '/');
+
+            items.Add(new
             {
-                var relativePath = Path.GetRelativePath(cdnRoot, fileInfo.FullName).Replace('\\', '/');
-
-                items.Add(new
-                {
-                    key = relativePath,
-                    url = $"{baseUrl}/api/v1/cdn/file?key={Uri.EscapeDataString(relativePath)}",
-                    cdnUrl = $"{baseUrl}/cdn/{relativePath}",
-                    size = fileInfo.Length,
-                    lastModified = fileInfo.LastWriteTimeUtc
-                });
-            }
+                key = relativePath,
+                url = $"{baseUrl}/api/v1/cdn/file?key={Uri.EscapeDataString(relativePath)}",
+                cdnUrl = $"{baseUrl}/cdn/{relativePath}",
+                size = fileInfo.Length,
+                lastModified = fileInfo.LastWriteTimeUtc
+            });
         }
 
         return Ok(new { items });
