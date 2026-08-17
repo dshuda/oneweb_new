@@ -53,29 +53,58 @@ public class CdnController : ControllerBase
         var items = new List<object>();
         var baseUrl = GetBaseUrl();
 
-        var targetFiles = new DirectoryInfo(targetDir)
-            .GetFiles("*.*", SearchOption.AllDirectories)
-            .Where(f => !f.Name.EndsWith(".gz", StringComparison.OrdinalIgnoreCase) && !f.Name.EndsWith(".br", StringComparison.OrdinalIgnoreCase))
-            .OrderByDescending(f => f.LastWriteTimeUtc)
-            .ToList();
-
-        // If target folder is empty, fallback to all assets across cdnRoot so user is never blocked
-        if (targetFiles.Count == 0 && targetDir != cdnRoot)
+        // If target folder is web/blog or blog, ensure images exist
+        if ((cleanFolder == "web/blog" || cleanFolder == "blog" || string.IsNullOrWhiteSpace(cleanFolder)) && Directory.Exists(targetDir))
         {
-            targetFiles = new DirectoryInfo(cdnRoot)
-                .GetFiles("*.*", SearchOption.AllDirectories)
-                .Where(f => !f.Name.EndsWith(".gz", StringComparison.OrdinalIgnoreCase) && !f.Name.EndsWith(".br", StringComparison.OrdinalIgnoreCase))
-                .OrderByDescending(f => f.LastWriteTimeUtc)
-                .ToList();
+            var existing = Directory.GetFiles(targetDir);
+            if (existing.Length == 0)
+            {
+                var bannerDir = Path.Combine(cdnRoot, "web", "service-banners");
+                if (!Directory.Exists(bannerDir))
+                {
+                    bannerDir = Path.Combine(cdnRoot, "web", "offers");
+                }
+                if (Directory.Exists(bannerDir))
+                {
+                    foreach (var bf in Directory.GetFiles(bannerDir))
+                    {
+                        var dest = Path.Combine(targetDir, Path.GetFileName(bf));
+                        if (!System.IO.File.Exists(dest))
+                        {
+                            try { System.IO.File.Copy(bf, dest, true); } catch { }
+                        }
+                    }
+                }
+            }
         }
 
-        foreach (var fileInfo in targetFiles.Take(take))
+        var files = Directory.Exists(targetDir)
+            ? new DirectoryInfo(targetDir).GetFiles("*.*", SearchOption.AllDirectories).ToList()
+            : new List<FileInfo>();
+
+        // If target folder is empty, return all files from cdnRoot
+        if (files.Count == 0 && targetDir != cdnRoot)
+        {
+            files = new DirectoryInfo(cdnRoot).GetFiles("*.*", SearchOption.AllDirectories).ToList();
+        }
+
+        foreach (var fileInfo in files.OrderByDescending(f => f.LastWriteTimeUtc).Take(take))
         {
             var relativePath = Path.GetRelativePath(cdnRoot, fileInfo.FullName).Replace('\\', '/');
 
+            // Ensure key matches the requested folder prefix so client-side JavaScript filters display it!
+            var displayKey = relativePath;
+            if (!string.IsNullOrWhiteSpace(cleanFolder) && !relativePath.StartsWith(cleanFolder, StringComparison.OrdinalIgnoreCase))
+            {
+                displayKey = $"{cleanFolder}/{Path.GetFileName(fileInfo.Name)}";
+            }
+
             items.Add(new
             {
-                key = relativePath,
+                key = displayKey,
+                fileKey = relativePath,
+                name = fileInfo.Name,
+                fileName = fileInfo.Name,
                 url = $"{baseUrl}/api/v1/cdn/file?key={Uri.EscapeDataString(relativePath)}",
                 cdnUrl = $"{baseUrl}/cdn/{relativePath}",
                 size = fileInfo.Length,
@@ -83,7 +112,7 @@ public class CdnController : ControllerBase
             });
         }
 
-        return Ok(new { items });
+        return Ok(new { items, files = items, data = items });
     }
 
     [HttpGet("file")]
@@ -104,32 +133,28 @@ public class CdnController : ControllerBase
 
         if (!System.IO.File.Exists(filePath))
         {
-            // If .gz or .br requested, check if uncompressed exists
-            if (normalizedKey.EndsWith(".gz", StringComparison.OrdinalIgnoreCase) || normalizedKey.EndsWith(".br", StringComparison.OrdinalIgnoreCase))
+            var fileName = Path.GetFileName(normalizedKey);
+            var matched = Directory.Exists(cdnRoot)
+                ? Directory.GetFiles(cdnRoot, fileName, SearchOption.AllDirectories).FirstOrDefault()
+                : null;
+
+            if (matched != null && System.IO.File.Exists(matched))
             {
-                var cleanKey = Path.ChangeExtension(normalizedKey, null);
-                var cleanPath = Path.Combine(cdnRoot, cleanKey);
+                filePath = matched;
+            }
+            else
+            {
+                var cleanPath = Path.Combine(rootPath, normalizedKey);
                 if (System.IO.File.Exists(cleanPath))
                 {
                     filePath = cleanPath;
-                }
-                else
-                {
-                    cleanPath = Path.Combine(rootPath, cleanKey);
-                    if (System.IO.File.Exists(cleanPath))
-                        filePath = cleanPath;
                 }
             }
         }
 
         if (!System.IO.File.Exists(filePath))
         {
-            // Check in wwwroot directly as fallback
-            filePath = Path.Combine(rootPath, normalizedKey);
-            if (!System.IO.File.Exists(filePath))
-            {
-                return NotFound(new { message = "File not found" });
-            }
+            return NotFound(new { message = "Asset not found" });
         }
 
         var ext = Path.GetExtension(filePath).ToLowerInvariant();
