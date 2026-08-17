@@ -99,21 +99,20 @@ public class CreateOrderCommandHandler : IRequestHandler<CreateOrderCommand, Cre
         // Create Order
         var order = new Order
         {
-            UserId = (int)request.UserId,
-            ServiceId = request.ServiceId,
+            UserId = request.UserId,
+            ServiceId = service.Id,
             PriceId = request.PriceId,
             ServiceDate = request.ServiceDate,
             Time = request.Time,
-            // Require to add Price Id
-            ShippingAddress = request.ShippingAddress,
+            ShippingAddress = request.ShippingAddress ?? "Dhaka, Bangladesh",
             AdditionalInfo = request.AdditionalInfo,
-            PaymentType = request.PaymentType,
+            PaymentType = request.PaymentType ?? "cod",
             GrandTotal = grandTotal,
             CouponDiscount = couponDiscount,
             TrackingCode = trackingCode,
             DeliveryStatus = "pending",
             PaymentStatus = "unpaid",
-            OrderFrom = request.OrderFrom,
+            OrderFrom = request.OrderFrom ?? "web",
             Latitude = request.Latitude,
             Longitude = request.Longitude,
             CreatedAt = DateTime.UtcNow,
@@ -126,7 +125,7 @@ public class CreateOrderCommandHandler : IRequestHandler<CreateOrderCommand, Cre
         var orderDetail = new OrderDetail
         {
             Order = order,
-            ServiceId = request.ServiceId,
+            ServiceId = service.Id,
             Price = basePrice,
             CouponCode = request.CouponCode,
             CouponDiscount = couponDiscount,
@@ -141,20 +140,34 @@ public class CreateOrderCommandHandler : IRequestHandler<CreateOrderCommand, Cre
         {
             coupon.UsedCount++;
 
-            // T2.3 — Track per-user usage
-            _dbContext.CouponUsages.Add(new CouponUsage
+            try
             {
-                CouponId = coupon.Id,
-                UserId = request.UserId,
-                Order = order,
-                CreatedAt = DateTime.UtcNow
-            });
+                _dbContext.CouponUsages.Add(new CouponUsage
+                {
+                    CouponId = coupon.Id,
+                    UserId = request.UserId,
+                    Order = order,
+                    CreatedAt = DateTime.UtcNow
+                });
+            }
+            catch { }
         }
 
-        await _dbContext.SaveChangesAsync(cancellationToken);
+        try
+        {
+            await _dbContext.SaveChangesAsync(cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            return new CreateOrderResult(false, null, null, $"Failed to save order: {ex.Message}");
+        }
 
         // T4.1 — Invalidate dashboard cache
-        await _cacheService.InvalidateStatsAsync();
+        try
+        {
+            await _cacheService.InvalidateStatsAsync();
+        }
+        catch { }
 
         return new CreateOrderResult(true, order.Id, trackingCode, "Order created successfully");
     }
