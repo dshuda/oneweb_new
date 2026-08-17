@@ -43,37 +43,51 @@ export function formatDateParts(iso?: string) {
   }
 }
 
-export function resolveImageUrl(url?: string | null, fallback = '/banner_appliance_repair.png'): string {
+export function resolveImageUrl(url?: string | null, fallback = '/service-banners/banner_cleaning.png'): string {
   if (!url || typeof url !== 'string' || !url.trim()) {
     return fallback;
   }
-  const clean = url.trim();
+  let clean = url.trim();
 
-  // If already a full HTTP/HTTPS URL
+  // If full external URL not pointing to our backend hosts, keep it
   if (clean.startsWith('http://') || clean.startsWith('https://')) {
-    return clean;
+    if (!clean.includes('localhost') && !clean.includes('127.0.0.1') && !clean.includes('104.248.232.169')) {
+      return clean;
+    }
+    // Strip our backend host so it routes cleanly through Next.js proxy
+    clean = clean.replace(/^https?:\/\/[^\/]+/i, '');
   }
 
-  // If already an API or CDN path
+  if (!clean) return fallback;
+
+  // If starts with /api/v1/
   if (clean.startsWith('/api/v1/')) {
     return clean;
   }
   if (clean.startsWith('api/v1/')) {
     return `/${clean}`;
   }
+
+  // If UploadImage
   if (clean.startsWith('/UploadImage/') || clean.startsWith('UploadImage/')) {
     return `/api/v1/UploadImage/${clean.replace(/^\/?UploadImage\//, '')}`;
   }
 
-  // If public static assets
+  // If local static assets in public folder
   if (clean.startsWith('/service-icons/') || clean.startsWith('/service-banners/') || clean.startsWith('/offers/')) {
     return clean;
   }
 
-  // If CDN relative path (e.g. web/service-icons/... or cdn/...)
-  if (clean.startsWith('web/') || clean.startsWith('cdn/') || clean.includes('/')) {
-    return `/api/v1/cdn/file?key=${encodeURIComponent(clean.replace(/^\/?cdn\//, ''))}`;
+  // If CDN path
+  if (clean.startsWith('web/') || clean.startsWith('cdn/') || clean.startsWith('/cdn/')) {
+    const key = clean.replace(/^\/?cdn\//, '');
+    return `/api/v1/cdn/file?key=${encodeURIComponent(key)}`;
   }
 
-  return clean.startsWith('/') ? clean : `/${clean}`;
+  if (clean.includes('/')) {
+    return clean.startsWith('/') ? clean : `/${clean}`;
+  }
+
+  // Single file name
+  return `/api/v1/UploadImage/${clean}`;
 }

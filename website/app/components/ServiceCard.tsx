@@ -15,7 +15,7 @@ import {
 import { cn, formatReviewCount, resolveImageUrl } from "@/lib/utils";
 import { ArrowLeft } from "lucide-react";
 import Image from "next/image";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { FiChevronRight, FiStar } from "react-icons/fi";
 import { useCart } from "./CartProvider";
 import ServiceDetailsDrawer from "./ServiceDetailsDrawer";
@@ -73,15 +73,28 @@ export default function ServiceCard({
     setPackagesOpen(true);
   };
 
+  const initialImg = resolveImageUrl(image, '/service-banners/banner_cleaning.png');
+  const [imgSrc, setImgSrc] = useState(initialImg);
+
+  useEffect(() => {
+    setImgSrc(resolveImageUrl(image, '/service-banners/banner_cleaning.png'));
+  }, [image]);
+
   return (
     <>
       <Card className="group gap-0 overflow-hidden rounded-2xl bg-white p-0 shadow-sm ring-border transition-all hover:-translate-y-1 hover:shadow-lg">
         {/* Image Container */}
-        <div className="relative h-40 w-full overflow-hidden bg-gray-200 sm:h-44">
+        <div className="relative h-40 w-full overflow-hidden bg-gray-100 sm:h-44">
           <Image
-            src={resolveImageUrl(image, '/service-banners/banner_cleaning.png')}
+            src={imgSrc}
             alt={title}
             fill
+            unoptimized
+            onError={() => {
+              if (imgSrc !== '/service-banners/banner_cleaning.png') {
+                setImgSrc('/service-banners/banner_cleaning.png');
+              }
+            }}
             className="object-cover transition-transform duration-500 group-hover:scale-110"
           />
           {isBestSeller && (
