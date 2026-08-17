@@ -12,7 +12,7 @@ import {
   DrawerHeader,
   DrawerTitle,
 } from "@/components/ui/drawer";
-import { cn, formatReviewCount } from "@/lib/utils";
+import { cn, formatReviewCount, resolveImageUrl } from "@/lib/utils";
 import { ArrowLeft } from "lucide-react";
 import Image from "next/image";
 import { useState } from "react";
@@ -55,13 +55,13 @@ export default function ServiceCard({
   const displayCount = subServices?.length ?? serviceCount;
 
   const bookBase = () =>
-    requestSchedule({ serviceTitle: title, image, price, priceUnit });
+    requestSchedule({ serviceTitle: title, image: resolveImageUrl(image), price, priceUnit });
 
   const bookSub = (sub: SubService) => {
     requestSchedule({
       serviceTitle: title,
       subName: sub.name,
-      image,
+      image: resolveImageUrl(image),
       price: sub.price,
       priceUnit: sub.priceUnit,
     });
@@ -79,7 +79,7 @@ export default function ServiceCard({
         {/* Image Container */}
         <div className="relative h-40 w-full overflow-hidden bg-gray-200 sm:h-44">
           <Image
-            src={image}
+            src={resolveImageUrl(image, '/service-banners/banner_cleaning.png')}
             alt={title}
             fill
             className="object-cover transition-transform duration-500 group-hover:scale-110"

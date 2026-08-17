@@ -6,7 +6,9 @@ import { useEffect, useState } from "react";
 import CategoryHero from "@/app/components/CategoryHero";
 import CategorySidebar from "@/app/components/CategorySidebar";
 import ServiceCard from "@/app/components/ServiceCard";
-import { getCategoryDetailsBySlug } from "@/app/data/services";
+import { getCategoryDetailsBySlug, CategoryDetails, SubCategory, ServiceItem } from "@/app/data/services";
+import { resolveImageUrl } from "@/lib/utils";
+import api from "@/lib/api";
 
 interface CategoryClientProps {
   slug: string;
@@ -16,32 +18,113 @@ export default function CategoryClient({ slug: initialSlug }: CategoryClientProp
   const router = useRouter();
   const pathname = usePathname();
 
-  // The active category is kept in state so switching categories swaps the
-  // content IN PLACE (no full page reload / scroll-to-top jump).
   const [slug, setSlug] = useState(initialSlug);
-  const [activeId, setActiveId] = useState(() => {
-    const cat = getCategoryDetailsBySlug(initialSlug);
-    return cat?.subCategories[0]?.id ?? 0;
-  });
+  const [activeId, setActiveId] = useState<number>(0);
+  const [dynamicCategory, setDynamicCategory] = useState<CategoryDetails | null>(null);
 
-  const category = getCategoryDetailsBySlug(slug);
+  // 1. Fetch live subcategories and images from backend
+  useEffect(() => {
+    const fetchLiveCategory = async () => {
+      try {
+        const res = await api.get('/api/v1/services/categories');
+        const data = res.data;
+        if (Array.isArray(data) && data.length > 0) {
+          const matched = data.find((c: any) => 
+            (c.slug && c.slug.toLowerCase() === slug.toLowerCase()) ||
+            (c.name && c.name.toLowerCase().includes(slug.replace('-', ' ').toLowerCase())) ||
+            (slug.toLowerCase().includes((c.name || '').toLowerCase()))
+          );
 
-  // Switch to another category in place — the single source of truth used by
-  // both the sidebar handler and the URL-sync effect.
+          if (matched && Array.isArray(matched.children) && matched.children.length > 0) {
+            const fallback = getCategoryDetailsBySlug(slug);
+            const liveSubCategories: SubCategory[] = matched.children.map((child: any, idx: number) => {
+              const childImg = resolveImageUrl(child.bannerImage || child.serviceIcon, '/service-banners/banner_cleaning.png');
+              
+              // Find matching fallback subcategory if available
+              const matchedFallbackSub = fallback?.subCategories?.find((fs: any) => 
+                (fs.name && fs.name.toLowerCase() === child.name.toLowerCase()) || fs.id === child.id
+              );
+
+              const services: ServiceItem[] = (Array.isArray(child.children) && child.children.length > 0)
+                ? child.children.map((srv: any) => ({
+                    id: srv.id,
+                    title: srv.name || child.name,
+                    image: resolveImageUrl(srv.bannerImage || srv.serviceIcon || childImg, childImg),
+                    rating: 4.9,
+                    reviewCount: 120,
+                    price: srv.initialPrice || child.initialPrice || 499,
+                    priceUnit: '/service',
+                    serviceCount: 1,
+                  }))
+                : (matchedFallbackSub?.services && matchedFallbackSub.services.length > 0)
+                  ? matchedFallbackSub.services.map((fs: any) => ({
+                      ...fs,
+                      // Override default image with real admin-configured subcategory image!
+                      image: childImg || fs.image,
+                    }))
+                  : [{
+                      id: child.id,
+                      title: child.name,
+                      image: childImg,
+                      rating: 4.9,
+                      reviewCount: 120,
+                      price: child.initialPrice || 499,
+                      priceUnit: '/service',
+                      serviceCount: 1,
+                    }];
+
+              return {
+                id: child.id || (idx + 1),
+                name: child.name,
+                icon: matchedFallbackSub?.icon || (() => null),
+                services,
+              };
+            });
+
+            if (liveSubCategories.length > 0) {
+              setDynamicCategory({
+                id: matched.id,
+                name: matched.name,
+                slug: matched.slug || slug,
+                heroTitle: fallback?.heroTitle || `${matched.name} Services`,
+                heroTitleAccent: fallback?.heroTitleAccent || 'Delivered to Your Doorstep',
+                heroSubtitle: fallback?.heroSubtitle || `Expert ${matched.name.toLowerCase()} services in Dhaka. Verified professionals, transparent pricing.`,
+                subCategories: liveSubCategories,
+              });
+
+              setActiveId((prev) => {
+                const exists = liveSubCategories.some((s) => s.id === prev);
+                return exists ? prev : liveSubCategories[0].id;
+              });
+              return;
+            }
+          }
+        }
+      } catch (err) {
+        console.error('Failed to load dynamic category data:', err);
+      }
+      
+      const fb = getCategoryDetailsBySlug(slug);
+      setDynamicCategory(fb ?? null);
+      if (fb?.subCategories?.[0]) {
+        setActiveId(fb.subCategories[0].id);
+      }
+    };
+
+    fetchLiveCategory();
+  }, [slug]);
+
+  const category = dynamicCategory || getCategoryDetailsBySlug(slug);
+
   const applySlug = (nextSlug: string) => {
-    const next = getCategoryDetailsBySlug(nextSlug);
-    if (!next) return;
     setSlug(nextSlug);
-    setActiveId(next.subCategories[0]?.id ?? 0);
   };
 
-  // Keep the in-place state in sync with the URL (browser back/forward, etc.).
   useEffect(() => {
     const urlSlug = pathname.split("/").filter(Boolean).pop() ?? "";
     if (urlSlug && urlSlug !== slug) {
       applySlug(urlSlug);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pathname]);
 
   if (!category) return null;
@@ -53,7 +136,6 @@ export default function CategoryClient({ slug: initialSlug }: CategoryClientProp
   const handleCategoryChange = (newSlug: string) => {
     if (newSlug === slug) return;
     applySlug(newSlug);
-    // Update the URL without navigating away — no reload, no scroll jump.
     router.replace(`/category/${newSlug}`, { scroll: false });
   };
 
