@@ -38,50 +38,37 @@ export default function CategoryClient({ slug: initialSlug }: CategoryClientProp
           if (matched && Array.isArray(matched.children) && matched.children.length > 0) {
             const fallback = getCategoryDetailsBySlug(slug);
             const liveSubCategories: SubCategory[] = matched.children.map((child: any, idx: number) => {
-              const childImg = resolveImageUrl(child.bannerImage || child.serviceIcon, '/service-banners/banner_cleaning.png');
+              const childImg = child.bannerImage || child.serviceIcon;
               
-              // Find matching fallback subcategory if available
               const matchedFallbackSub = fallback?.subCategories?.find((fs: any) => 
-                (fs.name && fs.name.toLowerCase() === child.name.toLowerCase()) || fs.id === child.id
+                (fs.name && fs.name.toLowerCase().trim() === child.name.toLowerCase().trim()) || fs.id === child.id
               );
 
+              // Map actual services under this subcategory directly from the API
               const services: ServiceItem[] = (Array.isArray(child.children) && child.children.length > 0)
                 ? child.children.map((srv: any) => {
-                    const matchedFs = matchedFallbackSub?.services?.find((f: any) => 
-                      f.title?.toLowerCase().trim() === srv.name?.toLowerCase().trim() || f.id === srv.id
-                    );
-                    const srvSpecificImg = srv.bannerImage || srv.serviceIcon;
-                    const finalImg = srvSpecificImg
-                      ? resolveImageUrl(srvSpecificImg)
-                      : (matchedFs?.image ? resolveImageUrl(matchedFs.image) : childImg);
-
+                    const srvImg = srv.bannerImage || srv.serviceIcon || childImg;
                     return {
                       id: srv.id,
                       title: srv.name || child.name,
-                      image: finalImg,
-                      rating: matchedFs?.rating || 4.8,
-                      reviewCount: matchedFs?.reviewCount || 120,
-                      price: srv.initialPrice || matchedFs?.price || child.initialPrice || 499,
-                      priceUnit: matchedFs?.priceUnit || '/service',
-                      serviceCount: matchedFs?.subServices?.length || 1,
-                      subServices: matchedFs?.subServices,
-                    };
-                  })
-                : (matchedFallbackSub?.services && matchedFallbackSub.services.length > 0)
-                  ? matchedFallbackSub.services.map((fs: any) => ({
-                      ...fs,
-                      image: resolveImageUrl(fs.image || childImg),
-                    }))
-                  : [{
-                      id: child.id,
-                      title: child.name,
-                      image: childImg,
+                      image: resolveImageUrl(srvImg),
                       rating: 4.8,
                       reviewCount: 120,
-                      price: child.initialPrice || 499,
+                      price: srv.initialPrice || child.initialPrice || 499,
                       priceUnit: '/service',
                       serviceCount: 1,
-                    }];
+                    };
+                  })
+                : [{
+                    id: child.id,
+                    title: child.name,
+                    image: resolveImageUrl(childImg),
+                    rating: 4.8,
+                    reviewCount: 120,
+                    price: child.initialPrice || 499,
+                    priceUnit: '/service',
+                    serviceCount: 1,
+                  }];
 
               return {
                 id: child.id || (idx + 1),

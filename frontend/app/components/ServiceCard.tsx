@@ -85,17 +85,16 @@ export default function ServiceCard({
       <Card className="group gap-0 overflow-hidden rounded-2xl bg-white p-0 shadow-sm ring-border transition-all hover:-translate-y-1 hover:shadow-lg">
         {/* Image Container */}
         <div className="relative h-40 w-full overflow-hidden bg-gray-100 sm:h-44">
-          <Image
+          <img
             src={imgSrc}
             alt={title}
-            fill
-            unoptimized
             onError={() => {
               if (imgSrc !== '/service-banners/banner_cleaning.png') {
                 setImgSrc('/service-banners/banner_cleaning.png');
               }
             }}
-            className="object-cover transition-transform duration-500 group-hover:scale-110"
+            className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-110"
+            loading="lazy"
           />
           {isBestSeller && (
             <Badge className="absolute top-3 left-3 rounded-md bg-yellow-400 px-2.5 py-1 text-xs font-bold text-black hover:bg-yellow-400">
