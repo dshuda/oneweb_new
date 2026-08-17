@@ -46,27 +46,37 @@ export default function CategoryClient({ slug: initialSlug }: CategoryClientProp
               );
 
               const services: ServiceItem[] = (Array.isArray(child.children) && child.children.length > 0)
-                ? child.children.map((srv: any) => ({
-                    id: srv.id,
-                    title: srv.name || child.name,
-                    image: resolveImageUrl(srv.bannerImage || srv.serviceIcon || childImg, childImg),
-                    rating: 4.9,
-                    reviewCount: 120,
-                    price: srv.initialPrice || child.initialPrice || 499,
-                    priceUnit: '/service',
-                    serviceCount: 1,
-                  }))
+                ? child.children.map((srv: any) => {
+                    const matchedFs = matchedFallbackSub?.services?.find((f: any) => 
+                      f.title?.toLowerCase().trim() === srv.name?.toLowerCase().trim() || f.id === srv.id
+                    );
+                    const srvSpecificImg = srv.bannerImage || srv.serviceIcon;
+                    const finalImg = srvSpecificImg
+                      ? resolveImageUrl(srvSpecificImg)
+                      : (matchedFs?.image ? resolveImageUrl(matchedFs.image) : childImg);
+
+                    return {
+                      id: srv.id,
+                      title: srv.name || child.name,
+                      image: finalImg,
+                      rating: matchedFs?.rating || 4.8,
+                      reviewCount: matchedFs?.reviewCount || 120,
+                      price: srv.initialPrice || matchedFs?.price || child.initialPrice || 499,
+                      priceUnit: matchedFs?.priceUnit || '/service',
+                      serviceCount: matchedFs?.subServices?.length || 1,
+                      subServices: matchedFs?.subServices,
+                    };
+                  })
                 : (matchedFallbackSub?.services && matchedFallbackSub.services.length > 0)
                   ? matchedFallbackSub.services.map((fs: any) => ({
                       ...fs,
-                      // Override default image with real admin-configured subcategory image!
-                      image: childImg || fs.image,
+                      image: resolveImageUrl(fs.image || childImg),
                     }))
                   : [{
                       id: child.id,
                       title: child.name,
                       image: childImg,
-                      rating: 4.9,
+                      rating: 4.8,
                       reviewCount: 120,
                       price: child.initialPrice || 499,
                       priceUnit: '/service',
