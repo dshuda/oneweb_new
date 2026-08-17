@@ -84,6 +84,22 @@ public class CustomersAdminController : ControllerBase
         var totalSpent = orders.Sum(o => o.GrandTotal ?? 0);
         var lastOrder = orders.FirstOrDefault()?.CreatedAt;
 
+        var recentOrdersList = orders.Take(15).Select(o => new
+        {
+            id = o.Id,
+            trackingCode = o.TrackingCode ?? string.Empty,
+            serviceName = o.Service?.Name ?? "Home Service",
+            service = o.Service != null ? new { id = o.Service.Id, name = o.Service.Name } : null,
+            locationName = o.ShippingAddress ?? string.Empty,
+            shippingAddress = o.ShippingAddress ?? string.Empty,
+            grandTotal = o.GrandTotal ?? 0,
+            total = o.GrandTotal ?? 0,
+            deliveryStatus = o.DeliveryStatus ?? "pending",
+            paymentStatus = o.PaymentStatus ?? "unpaid",
+            paymentType = o.PaymentType ?? "cod",
+            createdAt = o.CreatedAt
+        }).ToList();
+
         var result = new
         {
             id = user.Id,
@@ -92,29 +108,16 @@ public class CustomersAdminController : ControllerBase
             email = user.Email ?? string.Empty,
             phone = user.Phone ?? string.Empty,
             address = user.Address ?? string.Empty,
-            orders = orders.Count,
+            orders = recentOrdersList,
             totalOrders = orders.Count,
             ordersCount = orders.Count,
+            orderCount = orders.Count,
             spent = totalSpent,
             totalSpent = totalSpent,
             lastOrderAt = lastOrder,
             createdAt = user.CreatedAt,
             status = user.Status && !user.IsBanned,
-            isBanned = user.IsBanned,
-            recentOrders = orders.Take(15).Select(o => new
-            {
-                id = o.Id,
-                trackingCode = o.TrackingCode ?? string.Empty,
-                serviceName = o.Service?.Name ?? "Home Service",
-                service = o.Service != null ? new { id = o.Service.Id, name = o.Service.Name } : null,
-                shippingAddress = o.ShippingAddress ?? string.Empty,
-                grandTotal = o.GrandTotal ?? 0,
-                total = o.GrandTotal ?? 0,
-                deliveryStatus = o.DeliveryStatus ?? "pending",
-                paymentStatus = o.PaymentStatus ?? "unpaid",
-                paymentType = o.PaymentType ?? "cod",
-                createdAt = o.CreatedAt
-            }).ToList()
+            isBanned = user.IsBanned
         };
 
         return ApiResponseFactory.Ok(result, HttpContext);
