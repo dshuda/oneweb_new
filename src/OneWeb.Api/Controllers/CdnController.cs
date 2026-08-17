@@ -114,34 +114,64 @@ public class CdnController : ControllerBase
     [AllowAnonymous]
     public IActionResult GetFile([FromQuery] string? key, string? path)
     {
-        var fileKey = key ?? path;
-        if (string.IsNullOrWhiteSpace(fileKey))
+        var targetKey = key ?? path;
+        if (string.IsNullOrWhiteSpace(targetKey))
         {
-            return BadRequest(new { message = "Key or path is required" });
+            return BadRequest(new { message = "Key is required" });
         }
 
         var rootPath = _environment.WebRootPath ?? Path.Combine(Directory.GetCurrentDirectory(), "wwwroot");
         var cdnRoot = Path.Combine(rootPath, "cdn");
-        var normalizedKey = fileKey.Replace('/', Path.DirectorySeparatorChar);
+
+        var normalizedKey = targetKey.TrimStart('/').Replace('/', Path.DirectorySeparatorChar);
         var filePath = Path.Combine(cdnRoot, normalizedKey);
 
         if (!System.IO.File.Exists(filePath))
         {
-            var fileName = Path.GetFileName(normalizedKey);
-            var matched = Directory.Exists(cdnRoot)
-                ? Directory.GetFiles(cdnRoot, fileName, SearchOption.AllDirectories).FirstOrDefault()
-                : null;
-
-            if (matched != null && System.IO.File.Exists(matched))
+            // 1. Try checking wwwroot directly (e.g. wwwroot/UploadImage/... or wwwroot/...)
+            var directPath = Path.Combine(rootPath, normalizedKey);
+            if (System.IO.File.Exists(directPath))
             {
-                filePath = matched;
+                filePath = directPath;
             }
             else
             {
-                var cleanPath = Path.Combine(rootPath, normalizedKey);
-                if (System.IO.File.Exists(cleanPath))
+                // 2. Try searching by file name in cdnRoot
+                var fileName = Path.GetFileName(normalizedKey);
+                var matched = Directory.Exists(cdnRoot)
+                    ? Directory.GetFiles(cdnRoot, fileName, SearchOption.AllDirectories).FirstOrDefault()
+                    : null;
+
+                if (matched != null && System.IO.File.Exists(matched))
                 {
-                    filePath = cleanPath;
+                    filePath = matched;
+                }
+                else
+                {
+                    // 3. Try searching in UploadImage folder
+                    var uploadDir = Path.Combine(rootPath, "UploadImage");
+                    var uploadMatched = Directory.Exists(uploadDir)
+                        ? Directory.GetFiles(uploadDir, fileName, SearchOption.TopDirectoryOnly).FirstOrDefault()
+                        : null;
+
+                    if (uploadMatched != null && System.IO.File.Exists(uploadMatched))
+                    {
+                        filePath = uploadMatched;
+                    }
+                    else
+                    {
+                        // 4. Graceful Fallback: Serve a default relevant banner image instead of 404!
+                        var fallbackBanner = Path.Combine(cdnRoot, "web", "banner_appliance_repair.png");
+                        if (!System.IO.File.Exists(fallbackBanner))
+                        {
+                            fallbackBanner = Path.Combine(cdnRoot, "web", "service-banners", "banner_cleaning.png");
+                        }
+
+                        if (System.IO.File.Exists(fallbackBanner))
+                        {
+                            filePath = fallbackBanner;
+                        }
+                    }
                 }
             }
         }
