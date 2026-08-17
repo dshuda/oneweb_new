@@ -30,7 +30,7 @@ public class CdnController : ControllerBase
 
     [HttpGet]
     [AllowAnonymous]
-    public IActionResult GetAssets([FromQuery] string? folder = null, [FromQuery] int take = 500)
+    public IActionResult GetAssets([FromQuery] string? folder = null, [FromQuery] int take = 1000)
     {
         var rootPath = _environment.WebRootPath ?? Path.Combine(Directory.GetCurrentDirectory(), "wwwroot");
         var cdnRoot = Path.Combine(rootPath, "cdn");
@@ -41,75 +41,69 @@ public class CdnController : ControllerBase
         }
 
         var cleanFolder = folder?.Trim().Trim('/');
-        var targetDir = string.IsNullOrWhiteSpace(cleanFolder)
-            ? cdnRoot
-            : Path.Combine(cdnRoot, cleanFolder.Replace('/', Path.DirectorySeparatorChar));
-
-        if (!Directory.Exists(targetDir))
-        {
-            Directory.CreateDirectory(targetDir);
-        }
-
-        var items = new List<object>();
         var baseUrl = GetBaseUrl();
+        var items = new List<object>();
 
-        // If target folder is web/blog or blog, ensure images exist
-        if ((cleanFolder == "web/blog" || cleanFolder == "blog" || string.IsNullOrWhiteSpace(cleanFolder)) && Directory.Exists(targetDir))
-        {
-            var existing = Directory.GetFiles(targetDir);
-            if (existing.Length == 0)
-            {
-                var bannerDir = Path.Combine(cdnRoot, "web", "service-banners");
-                if (!Directory.Exists(bannerDir))
-                {
-                    bannerDir = Path.Combine(cdnRoot, "web", "offers");
-                }
-                if (Directory.Exists(bannerDir))
-                {
-                    foreach (var bf in Directory.GetFiles(bannerDir))
-                    {
-                        var dest = Path.Combine(targetDir, Path.GetFileName(bf));
-                        if (!System.IO.File.Exists(dest))
-                        {
-                            try { System.IO.File.Copy(bf, dest, true); } catch { }
-                        }
-                    }
-                }
-            }
-        }
-
-        var files = Directory.Exists(targetDir)
-            ? new DirectoryInfo(targetDir).GetFiles("*.*", SearchOption.AllDirectories).ToList()
+        // Always gather ALL existing files across the entire cdn directory!
+        var allCdnFiles = Directory.Exists(cdnRoot)
+            ? new DirectoryInfo(cdnRoot).GetFiles("*.*", SearchOption.AllDirectories)
+                .Where(f => !f.Name.EndsWith(".gz", StringComparison.OrdinalIgnoreCase) && !f.Name.EndsWith(".br", StringComparison.OrdinalIgnoreCase))
+                .OrderByDescending(f => f.LastWriteTimeUtc)
+                .ToList()
             : new List<FileInfo>();
 
-        // If target folder is empty, return all files from cdnRoot
-        if (files.Count == 0 && targetDir != cdnRoot)
+        // Also check UploadImage folder for existing uploads
+        var uploadPath = Path.Combine(rootPath, "UploadImage");
+        if (Directory.Exists(uploadPath))
         {
-            files = new DirectoryInfo(cdnRoot).GetFiles("*.*", SearchOption.AllDirectories).ToList();
+            var uploadedFiles = new DirectoryInfo(uploadPath).GetFiles("*.*", SearchOption.TopDirectoryOnly)
+                .Where(f => !f.Name.EndsWith(".gz", StringComparison.OrdinalIgnoreCase) && !f.Name.EndsWith(".br", StringComparison.OrdinalIgnoreCase))
+                .OrderByDescending(f => f.LastWriteTimeUtc);
+            allCdnFiles.AddRange(uploadedFiles);
         }
 
-        foreach (var fileInfo in files.OrderByDescending(f => f.LastWriteTimeUtc).Take(take))
+        var seenKeys = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        foreach (var fileInfo in allCdnFiles)
         {
             var relativePath = Path.GetRelativePath(cdnRoot, fileInfo.FullName).Replace('\\', '/');
 
-            // Ensure key matches the requested folder prefix so client-side JavaScript filters display it!
-            var displayKey = relativePath;
-            if (!string.IsNullOrWhiteSpace(cleanFolder) && !relativePath.StartsWith(cleanFolder, StringComparison.OrdinalIgnoreCase))
+            // 1. Emit direct path
+            if (seenKeys.Add(relativePath))
             {
-                displayKey = $"{cleanFolder}/{Path.GetFileName(fileInfo.Name)}";
+                items.Add(new
+                {
+                    key = relativePath,
+                    fileKey = relativePath,
+                    name = fileInfo.Name,
+                    fileName = fileInfo.Name,
+                    url = $"{baseUrl}/api/v1/cdn/file?key={Uri.EscapeDataString(relativePath)}",
+                    cdnUrl = $"{baseUrl}/cdn/{relativePath}",
+                    size = fileInfo.Length,
+                    lastModified = fileInfo.LastWriteTimeUtc
+                });
             }
 
-            items.Add(new
+            // 2. If a specific folder was requested (e.g. web/blog), also emit alias key matching that folder prefix
+            // so the frontend client-side drawer filter displays ALL existing images in the modal!
+            if (!string.IsNullOrWhiteSpace(cleanFolder) && !relativePath.StartsWith(cleanFolder, StringComparison.OrdinalIgnoreCase))
             {
-                key = displayKey,
-                fileKey = relativePath,
-                name = fileInfo.Name,
-                fileName = fileInfo.Name,
-                url = $"{baseUrl}/api/v1/cdn/file?key={Uri.EscapeDataString(relativePath)}",
-                cdnUrl = $"{baseUrl}/cdn/{relativePath}",
-                size = fileInfo.Length,
-                lastModified = fileInfo.LastWriteTimeUtc
-            });
+                var folderKey = $"{cleanFolder}/{fileInfo.Name}";
+                if (seenKeys.Add(folderKey))
+                {
+                    items.Add(new
+                    {
+                        key = folderKey,
+                        fileKey = relativePath,
+                        name = fileInfo.Name,
+                        fileName = fileInfo.Name,
+                        url = $"{baseUrl}/api/v1/cdn/file?key={Uri.EscapeDataString(relativePath)}",
+                        cdnUrl = $"{baseUrl}/cdn/{relativePath}",
+                        size = fileInfo.Length,
+                        lastModified = fileInfo.LastWriteTimeUtc
+                    });
+                }
+            }
         }
 
         return Ok(new { items, files = items, data = items });
