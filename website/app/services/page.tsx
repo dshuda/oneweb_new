@@ -11,6 +11,8 @@ export const metadata: Metadata = {
     "Explore all service categories — cleaning, appliance repair, shifting, plumbing, security, and more. One tap away.",
 };
 
+import { resolveImageUrl } from "@/lib/utils";
+
 async function getCategories() {
   try {
     const backendUrl = process.env.INTERNAL_API_URL || (typeof window === 'undefined' ? 'http://127.0.0.1:5102' : '');
@@ -35,7 +37,7 @@ async function getCategories() {
             name: firstName,
             sub: subName,
             slug: cat.slug || firstName.toLowerCase(),
-            icon: cat.serviceIcon || '/service-icons/icon_cleaning.svg',
+            icon: resolveImageUrl(cat.serviceIcon || cat.bannerImage, '/service-icons/icon_cleaning.svg'),
           };
         });
       }

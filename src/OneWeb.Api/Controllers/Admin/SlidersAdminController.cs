@@ -19,12 +19,16 @@ public class SlidersAdminController : ControllerBase
         _dbContext = dbContext;
     }
 
-    // Public: GET /api/v1/sliders
-    [HttpGet()]
+    // Public & Admin: GET /api/v1/sliders & GET /api/v1/admin/sliders
+    [HttpGet]
+    [HttpGet("/api/v1/sliders")]
+    [AllowAnonymous]
     public async Task<IActionResult> GetSliders()
     {
         var sliders = await _dbContext.Sliders
-            .OrderBy(s => s.Id)
+            .Where(s => s.Status == true || Request.Path.Value.Contains("/admin/"))
+            .OrderBy(s => s.Position)
+            .ThenBy(s => s.Id)
             .Select(s => new
             {
                 s.Link,
@@ -36,11 +40,18 @@ public class SlidersAdminController : ControllerBase
                 s.Id
             })
             .ToListAsync();
-        return ApiResponseFactory.Ok(sliders, HttpContext);
+
+        if (Request.Path.Value?.Contains("/admin/") == true)
+        {
+            return ApiResponseFactory.Ok(sliders, HttpContext);
+        }
+
+        return Ok(new { items = sliders, data = sliders });
     }
 
     // Admin: POST /api/v1/admin/sliders
     [HttpPost]
+    [Authorize]
     public async Task<IActionResult> CreateSlider([FromBody] CreateSliderRequest request)
     {
         var slider = new Slider

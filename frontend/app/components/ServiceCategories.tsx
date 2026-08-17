@@ -7,6 +7,8 @@ import Link from 'next/link';
 import { serviceCategories as fallbackCategories, ServiceCategory } from '@/app/data/services';
 import api from '@/lib/api';
 
+import { resolveImageUrl } from '@/lib/utils';
+
 export default function ServiceCategories() {
   const [categories, setCategories] = useState<ServiceCategory[]>(fallbackCategories);
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -28,7 +30,7 @@ export default function ServiceCategories() {
               name: firstName,
               sub: subName,
               slug: cat.slug || firstName.toLowerCase(),
-              icon: cat.serviceIcon || '/service-icons/icon_cleaning.svg',
+              icon: resolveImageUrl(cat.serviceIcon || cat.bannerImage, '/service-icons/icon_cleaning.svg'),
             };
           });
           setCategories(mapped);

@@ -42,3 +42,38 @@ export function formatDateParts(iso?: string) {
     return { dayShort: '', dayNumber: '', dayFull: '', month: '' }
   }
 }
+
+export function resolveImageUrl(url?: string | null, fallback = '/banner_appliance_repair.png'): string {
+  if (!url || typeof url !== 'string' || !url.trim()) {
+    return fallback;
+  }
+  const clean = url.trim();
+
+  // If already a full HTTP/HTTPS URL
+  if (clean.startsWith('http://') || clean.startsWith('https://')) {
+    return clean;
+  }
+
+  // If already an API or CDN path
+  if (clean.startsWith('/api/v1/')) {
+    return clean;
+  }
+  if (clean.startsWith('api/v1/')) {
+    return `/${clean}`;
+  }
+  if (clean.startsWith('/UploadImage/') || clean.startsWith('UploadImage/')) {
+    return `/api/v1/UploadImage/${clean.replace(/^\/?UploadImage\//, '')}`;
+  }
+
+  // If public static assets
+  if (clean.startsWith('/service-icons/') || clean.startsWith('/service-banners/') || clean.startsWith('/offers/')) {
+    return clean;
+  }
+
+  // If CDN relative path (e.g. web/service-icons/... or cdn/...)
+  if (clean.startsWith('web/') || clean.startsWith('cdn/') || clean.includes('/')) {
+    return `/api/v1/cdn/file?key=${encodeURIComponent(clean.replace(/^\/?cdn\//, ''))}`;
+  }
+
+  return clean.startsWith('/') ? clean : `/${clean}`;
+}

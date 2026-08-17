@@ -1,15 +1,53 @@
 'use client';
 
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { FiChevronLeft, FiChevronRight, FiPlus } from 'react-icons/fi';
 import Image from 'next/image';
 import Link from 'next/link';
-import { serviceCategories } from '@/app/data/services';
+import { resolveImageUrl } from '@/lib/utils';
+import { serviceCategories as fallbackCategories } from '@/app/data/services';
+import { api } from '@/lib/api';
+
+type ServiceCategory = {
+  id: string;
+  name: string;
+  sub: string;
+  slug: string;
+  icon: any;
+};
 
 export default function ServiceCategories() {
+  const [categories, setCategories] = useState<ServiceCategory[]>(fallbackCategories);
   const scrollRef = useRef<HTMLDivElement>(null);
   const [canScrollLeft, setCanScrollLeft] = useState(false);
   const [canScrollRight, setCanScrollRight] = useState(true);
+
+  useEffect(() => {
+    const fetchCategories = async () => {
+      try {
+        const res = await api.get('/api/v1/services/categories');
+        const data = res.data;
+        if (Array.isArray(data) && data.length > 0) {
+          const mapped: ServiceCategory[] = data.map((cat: any) => {
+            const nameParts = (cat.name || '').split(' ');
+            const firstName = nameParts[0] || cat.name;
+            const subName = nameParts.slice(1).join(' ') || 'Service';
+            return {
+              id: cat.id,
+              name: firstName,
+              sub: subName,
+              slug: cat.slug || firstName.toLowerCase(),
+              icon: resolveImageUrl(cat.serviceIcon || cat.bannerImage, '/service-icons/icon_cleaning.svg'),
+            };
+          });
+          setCategories(mapped);
+        }
+      } catch (err) {
+        console.error('Failed to fetch categories:', err);
+      }
+    };
+    fetchCategories();
+  }, []);
 
   const scroll = (direction: 'left' | 'right') => {
     const container = scrollRef.current;
