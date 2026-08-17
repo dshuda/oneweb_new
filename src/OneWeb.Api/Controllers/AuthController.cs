@@ -2,6 +2,7 @@ using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 using OneWeb.Api.DTOs;
 using OneWeb.Application.Features.Auth.Commands;
 using OneWeb.Application.Features.Auth.Vendor;
@@ -63,15 +64,23 @@ public class AuthController : ControllerBase
         var val = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value
             ?? User.FindFirst("nameid")?.Value
             ?? User.FindFirst("sub")?.Value
-            ?? User.FindFirst("id")?.Value;
+            ?? User.FindFirst("id")?.Value
+            ?? User.FindFirst("userId")?.Value;
 
         if (long.TryParse(val, out var id) && id > 0)
             return id;
 
-        var phone = User.FindFirst("phone")?.Value;
+        var phone = User.FindFirst("phone")?.Value ?? User.FindFirst(System.Security.Claims.ClaimTypes.MobilePhone)?.Value;
         if (!string.IsNullOrEmpty(phone))
         {
             var user = _dbContext.Users.FirstOrDefault(u => u.Phone == phone);
+            if (user != null) return user.Id;
+        }
+
+        var email = User.FindFirst("email")?.Value ?? User.FindFirst(System.Security.Claims.ClaimTypes.Email)?.Value;
+        if (!string.IsNullOrEmpty(email))
+        {
+            var user = _dbContext.Users.FirstOrDefault(u => u.Email == email);
             if (user != null) return user.Id;
         }
 
@@ -86,9 +95,7 @@ public class AuthController : ControllerBase
         if (userId <= 0)
             return Unauthorized(new { message = "Invalid user token" });
 
-        var user = await Microsoft.EntityFrameworkCore.EntityFrameworkQueryableExtensions.FirstOrDefaultAsync(
-            _dbContext.Users, u => u.Id == userId
-        );
+        var user = await _dbContext.Users.FirstOrDefaultAsync(u => u.Id == userId);
         if (user == null)
             return NotFound(new { message = "User not found" });
 
@@ -105,15 +112,14 @@ public class AuthController : ControllerBase
 
     [Authorize]
     [HttpPut("profile")]
+    [HttpPost("profile")]
     public async Task<IActionResult> UpdateProfile([FromBody] UpdateProfileRequest request)
     {
         var userId = ExtractUserId();
         if (userId <= 0)
             return Unauthorized(new { message = "Invalid user token" });
 
-        var user = await Microsoft.EntityFrameworkCore.EntityFrameworkQueryableExtensions.FirstOrDefaultAsync(
-            _dbContext.Users, u => u.Id == userId
-        );
+        var user = await _dbContext.Users.FirstOrDefaultAsync(u => u.Id == userId);
         if (user == null)
             return NotFound(new { message = "User not found" });
 
@@ -121,7 +127,7 @@ public class AuthController : ControllerBase
         if (request.Address != null) user.Address = request.Address.Trim();
         if (request.Email != null) user.Email = request.Email.Trim();
 
-        _dbContext.Entry(user).State = Microsoft.EntityFrameworkCore.EntityState.Modified;
+        _dbContext.Entry(user).State = EntityState.Modified;
         await _dbContext.SaveChangesAsync();
 
         return Ok(new

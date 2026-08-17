@@ -82,8 +82,9 @@ public class GetAdminOrdersQueryHandler : IRequestHandler<GetAdminOrdersQuery, P
             VendorId = o.VendorId,
             Vendor = o.VendorId.HasValue && vendorMap.TryGetValue(o.VendorId.Value, out var vInfo) ? vInfo.Name : null,
             VendorContact = o.VendorId.HasValue && vendorMap.TryGetValue(o.VendorId.Value, out var vInfo2) ? vInfo2.Phone : null,
-            PriceId = o.PriceId,
-            Customer = o.User != null ? o.User.Name + " - " + o.User.Phone : null,
+            Customer = !string.IsNullOrWhiteSpace(o.User?.Name)
+                ? (!string.IsNullOrWhiteSpace(o.User?.Phone) ? $"{o.User.Name} ({o.User.Phone})" : o.User.Name)
+                : (!string.IsNullOrWhiteSpace(o.User?.Phone) ? o.User.Phone : (o.ShippingAddress ?? "Customer")),
             Service = o.Service != null ? new ServiceSummaryDto(o.Service.Id, o.Service.Name, o.Service.Slug) : null,
             OrderFrom = o.OrderFrom ?? null,
             Pricing = o.Service?.Prices.Select(f => new PricingDto() { Id = f.Id, Name = f.Name, Price = f.Price, Selected = f.Id == o.PriceId }).ToList(),
