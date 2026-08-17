@@ -44,6 +44,9 @@ export default function Footer() {
               Connecting you with the best service providers for your home and
               lifestyle needs. Quality assured.
             </p>
+            <p className="mt-3 text-xs leading-relaxed text-muted-foreground">
+              <span className="font-semibold text-foreground">Address:</span> 66 Kalabagan, Dhanmondi, Dhaka
+            </p>
           </div>
 
           {/* Company */}
