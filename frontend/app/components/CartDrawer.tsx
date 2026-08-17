@@ -130,12 +130,27 @@ export default function CartDrawer({
       const firstItem = items[0];
       const serviceIdNum = parseInt(firstItem.id, 10) || 1;
 
+      const formatTimeSpan = (t?: string) => {
+        if (!t) return '10:00:00';
+        const start = t.split('-')[0].trim();
+        const match = start.match(/^(\d{1,2}):(\d{2})(?:\s*(AM|PM))?$/i);
+        if (match) {
+          let h = parseInt(match[1], 10);
+          const m = match[2];
+          const ampm = match[3]?.toUpperCase();
+          if (ampm === 'PM' && h < 12) h += 12;
+          if (ampm === 'AM' && h === 12) h = 0;
+          return `${h.toString().padStart(2, '0')}:${m}:00`;
+        }
+        return '10:00:00';
+      };
+
       // 1. Create real order in backend
       const orderPayload = {
         serviceId: serviceIdNum,
         priceId: 0,
-        serviceDate: firstItem.date || new Date().toISOString().split('T')[0],
-        time: firstItem.time || '10:00 AM',
+        serviceDate: (firstItem.date || new Date().toISOString().split('T')[0]).split('T')[0],
+        time: formatTimeSpan(firstItem.time),
         shippingAddress: userAddress || 'Dhaka, Bangladesh',
         paymentType: payment === 'online' ? 'sslcommerz' : 'cod',
         couponCode: promoApplied ? PROMO_CODE : null,
