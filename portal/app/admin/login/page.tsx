@@ -6,6 +6,7 @@ import api from '@/lib/api';
 import { setAdminTokens } from '@/lib/adminAuth';
 import Image from 'next/image';
 import { asset } from "@/lib/assets";
+import { appPath } from '@/lib/navigation';
 
 export default function AdminLoginPage() {
   const router = useRouter();
