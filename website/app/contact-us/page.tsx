@@ -1,14 +1,9 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import {
-  FiClock,
-  FiMail,
-  FiMapPin,
-  FiPhone,
-} from "react-icons/fi";
-import Header from "../components/Header";
-import Footer from "../components/Footer";
+import { FiClock, FiMail, FiMapPin, FiPhone } from "react-icons/fi";
 import ContactForm from "../components/ContactForm";
+import Footer from "../components/Footer";
+import Header from "../components/Header";
 
 export const metadata: Metadata = {
   title: "Contact Us - One Tap Service",
@@ -20,17 +15,17 @@ const contactInfo = [
   {
     icon: FiMapPin,
     title: "Visit Us",
-    lines: ["Level 4, House 12, Road 5", "Banani, Dhaka 1213"],
+    lines: ["66 Kalabagan, Dhanmondi, Dhaka 1205, Bangladesh"],
   },
   {
     icon: FiPhone,
     title: "Call Us",
-    lines: ["+880 1700-000000", "+880 1700-000001"],
+    lines: ["+88 017 6666 2323", "+880 1847 271617"],
   },
   {
     icon: FiMail,
     title: "Email Us",
-    lines: ["support@onetapservice.com", "hello@onetapservice.com"],
+    lines: ["info@onetapservice.com", "support@onetapservice.com"],
   },
   {
     icon: FiClock,
@@ -46,7 +41,10 @@ export default function ContactPage() {
 
       <div className="mx-auto max-w-7xl px-4 pb-20 pt-32 sm:px-6 lg:px-8 lg:pt-36">
         {/* Breadcrumb */}
-        <nav aria-label="Breadcrumb" className="mb-6 text-sm text-muted-foreground">
+        <nav
+          aria-label="Breadcrumb"
+          className="mb-6 text-sm text-muted-foreground"
+        >
           <Link href="/" className="transition-colors hover:text-primary">
             Home
           </Link>

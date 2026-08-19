@@ -1,9 +1,9 @@
 "use client";
 
+import { asset } from "@/app/lib/assets";
 import { Button } from "@/components/ui/button";
 import Image from "next/image";
 import { FaApple, FaGooglePlay } from "react-icons/fa";
-import { asset } from '@/app/lib/assets';
 
 export default function AppPromotion() {
   return (
@@ -41,7 +41,9 @@ export default function AppPromotion() {
                 <Button
                   variant="outline"
                   nativeButton={false}
-                  render={<a href="#" />}
+                  render={
+                    <a href="https://play.google.com/store/apps/details?id=com.lifeplus.onetapservice" />
+                  }
                   className="h-auto w-full items-center gap-3 rounded-xl border-transparent bg-black px-5 py-3.5 text-white shadow-lg shadow-black/20 transition-all hover:-translate-y-0.5 hover:bg-black/90 hover:text-white hover:shadow-xl sm:w-auto"
                 >
                   <FaGooglePlay size={22} />
@@ -76,7 +78,7 @@ export default function AppPromotion() {
             {/* Right - in-flow image on mobile/tablet; hidden on desktop where the absolute bleed version takes over */}
             <div className="flex justify-center lg:hidden">
               <Image
-                src={asset('/mockup-hand.svg')}
+                src={asset("/mockup-hand.svg")}
                 alt="One Tap Service mobile app held in hand"
                 width={745}
                 height={526}
@@ -88,7 +90,7 @@ export default function AppPromotion() {
 
           {/* Mockup image bleeding past the bottom-right corner (desktop only) */}
           <Image
-            src={asset('/mockup-hand.svg')}
+            src={asset("/mockup-hand.svg")}
             alt="One Tap Service mobile app held in hand"
             width={745}
             height={526}

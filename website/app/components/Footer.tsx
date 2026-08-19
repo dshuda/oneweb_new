@@ -1,28 +1,44 @@
 "use client";
 
+import { asset } from "@/app/lib/assets";
 import Image from "next/image";
 import Link from "next/link";
-import { FiFacebook, FiInstagram, FiLinkedin, FiTwitter } from "react-icons/fi";
-import { asset } from '@/app/lib/assets';
+import { FiFacebook, FiInstagram, FiLinkedin, FiYoutube } from "react-icons/fi";
 
 const companyLinks = [
   { label: "About Us", href: "/about" },
   { label: "Blog & Insights", href: "/blog" },
-  { label: "Careers", href: "#" },
-  { label: "Partner with Us", href: "#" },
+  { label: "Careers", href: "/careers" },
+  { label: "Partner with Us", href: "/partner-with-us" },
 ];
 
 const supportLinks = [
-  { label: "Terms of Service", href: "#" },
-  { label: "Privacy Policy", href: "#" },
+  { label: "Terms of Service", href: "/terms-of-service" },
+  { label: "Privacy Policy", href: "/privacy-policy" },
   { label: "Contact Support", href: "/contact-us" },
 ];
 
 const socialLinks = [
-  { icon: FiFacebook, href: "#", label: "Facebook" },
-  { icon: FiTwitter, href: "#", label: "Twitter" },
-  { icon: FiInstagram, href: "#", label: "Instagram" },
-  { icon: FiLinkedin, href: "#", label: "LinkedIn" },
+  {
+    icon: FiFacebook,
+    href: "https://www.facebook.com/onetapservicebd/",
+    label: "Facebook",
+  },
+  {
+    icon: FiYoutube,
+    href: "https://www.youtube.com/onetapservicebd",
+    label: "YouTube",
+  },
+  {
+    icon: FiInstagram,
+    href: "https://www.youtube.com/@OneTapService",
+    label: "Instagram",
+  },
+  {
+    icon: FiLinkedin,
+    href: "https://www.linkedin.com/company/one-tap-service-bd",
+    label: "LinkedIn",
+  },
 ];
 
 export default function Footer() {
@@ -35,7 +51,7 @@ export default function Footer() {
           <div>
             <div className="mb-4">
               <Image
-                src={asset('/logo_onetap.svg')}
+                src={asset("/logo_onetap.svg")}
                 alt="One Tap Service"
                 width={69}
                 height={40}
