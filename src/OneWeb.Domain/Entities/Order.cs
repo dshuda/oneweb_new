@@ -35,6 +35,16 @@ public class Order : BaseEntity
     public string? Latitude { get; set; }
     public string? Longitude { get; set; }
 
+    /// <summary>Human-readable place the customer picked, e.g. "Green Road, Dhaka".</summary>
+    public string? LocationName { get; set; }
+
+    /// <summary>
+    /// The service location as a PostGIS point (SRID 4326). Stored alongside the
+    /// lat/lng strings so the coordinates are queryable — distance, bounding box,
+    /// nearest-vendor — rather than only displayable.
+    /// </summary>
+    public NetTopologySuite.Geometries.Point? Location { get; set; }
+
     // Preparence
     public DateOnly ServiceDate { get; set; }
     public TimeSpan? Time { get; set; }

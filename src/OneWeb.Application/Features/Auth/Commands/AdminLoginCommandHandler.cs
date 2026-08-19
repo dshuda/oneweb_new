@@ -25,9 +25,13 @@ public class AdminLoginCommandHandler : IRequestHandler<AdminLoginCommand, AuthR
     
     public async Task<AuthResult> Handle(AdminLoginCommand request, CancellationToken cancellationToken)
     {
-        // Find user by email where UserType is "admin" or "staff"
+        // The identifier may be an email or a phone number — admins are created
+        // with both, and staff generally remember the phone.
+        var identifier = (request.Email ?? string.Empty).Trim();
+        var lowered = identifier.ToLower();
+
         var user = await _dbContext.Users.FirstOrDefaultAsync(
-            u => u.Email.ToLower() == request.Email.ToLower() && 
+            u => ((u.Email != null && u.Email.ToLower() == lowered) || u.Phone == identifier) &&
                 (u.UserType == "admin" || u.UserType == "staff"),
             cancellationToken);
         

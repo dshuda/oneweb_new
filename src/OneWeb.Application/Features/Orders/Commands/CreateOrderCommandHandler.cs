@@ -21,34 +21,19 @@ public class CreateOrderCommandHandler : IRequestHandler<CreateOrderCommand, Cre
 
     public async Task<CreateOrderResult> Handle(CreateOrderCommand request, CancellationToken cancellationToken)
     {
-        // Validate: ServiceId exists
-        Service? service = null;
-        if (request.ServiceId > 0)
-        {
-            service = await _dbContext.Services.Include(f => f.Prices).FirstOrDefaultAsync(
-                s => s.Id == request.ServiceId,
-                cancellationToken);
-        }
-
-        if (service == null)
-        {
-            service = await _dbContext.Services.Include(f => f.Prices)
-                .FirstOrDefaultAsync(s => s.Status, cancellationToken)
-                ?? await _dbContext.Services.Include(f => f.Prices).FirstOrDefaultAsync(cancellationToken);
-        }
+        // Validate: ServiceId exists and Level=2 and Status=true
+        var service = await _dbContext.Services.Include(f => f.Prices).FirstOrDefaultAsync(
+            s => s.Id == request.ServiceId && s.Level == 2 && s.Status,
+            cancellationToken);
 
         if (service == null)
             return new CreateOrderResult(false, null, null, "Service not found or not available");
 
-        // ── Server-side price calculation ──────────────
-        var basePrice = service.InitialPrice > 0 ? service.InitialPrice : 460;
+        // ── Server-side price calculation (never trust client) ──────────────
+        var basePrice = service.InitialPrice;
         if (request.PriceId > 0)
         {
-            var pObj = service.Prices?.FirstOrDefault(f => f.Id == request.PriceId);
-            if (pObj != null && pObj.Price > 0)
-            {
-                basePrice = pObj.Price;
-            }
+            basePrice = service.Prices.Where(f => f.Id == request.PriceId)?.FirstOrDefault()?.Price ?? 0;
         }
         // If CouponCode provided: validate coupon
         Coupon? coupon = null;
@@ -99,22 +84,25 @@ public class CreateOrderCommandHandler : IRequestHandler<CreateOrderCommand, Cre
         // Create Order
         var order = new Order
         {
-            UserId = request.UserId,
-            ServiceId = service.Id,
+            UserId = (int)request.UserId,
+            ServiceId = request.ServiceId,
             PriceId = request.PriceId,
             ServiceDate = request.ServiceDate,
             Time = request.Time,
-            ShippingAddress = request.ShippingAddress ?? "Dhaka, Bangladesh",
+            // Require to add Price Id
+            ShippingAddress = request.ShippingAddress,
             AdditionalInfo = request.AdditionalInfo,
-            PaymentType = request.PaymentType ?? "cod",
+            PaymentType = request.PaymentType,
             GrandTotal = grandTotal,
             CouponDiscount = couponDiscount,
             TrackingCode = trackingCode,
             DeliveryStatus = "pending",
             PaymentStatus = "unpaid",
-            OrderFrom = request.OrderFrom ?? "web",
+            OrderFrom = request.OrderFrom,
             Latitude = request.Latitude,
             Longitude = request.Longitude,
+            LocationName = request.LocationName,
+            Location = BuildPoint(request.Latitude, request.Longitude),
             CreatedAt = DateTime.UtcNow,
             UpdatedAt = DateTime.UtcNow
         };
@@ -125,7 +113,7 @@ public class CreateOrderCommandHandler : IRequestHandler<CreateOrderCommand, Cre
         var orderDetail = new OrderDetail
         {
             Order = order,
-            ServiceId = service.Id,
+            ServiceId = request.ServiceId,
             Price = basePrice,
             CouponCode = request.CouponCode,
             CouponDiscount = couponDiscount,
@@ -140,35 +128,41 @@ public class CreateOrderCommandHandler : IRequestHandler<CreateOrderCommand, Cre
         {
             coupon.UsedCount++;
 
-            try
+            // T2.3 — Track per-user usage
+            _dbContext.CouponUsages.Add(new CouponUsage
             {
-                _dbContext.CouponUsages.Add(new CouponUsage
-                {
-                    CouponId = coupon.Id,
-                    UserId = request.UserId,
-                    Order = order,
-                    CreatedAt = DateTime.UtcNow
-                });
-            }
-            catch { }
+                CouponId = coupon.Id,
+                UserId = request.UserId,
+                Order = order,
+                CreatedAt = DateTime.UtcNow
+            });
         }
 
-        try
-        {
-            await _dbContext.SaveChangesAsync(cancellationToken);
-        }
-        catch (Exception ex)
-        {
-            return new CreateOrderResult(false, null, null, $"Failed to save order: {ex.Message}");
-        }
+        await _dbContext.SaveChangesAsync(cancellationToken);
 
         // T4.1 — Invalidate dashboard cache
-        try
-        {
-            await _cacheService.InvalidateStatsAsync();
-        }
-        catch { }
+        await _cacheService.InvalidateStatsAsync();
 
         return new CreateOrderResult(true, order.Id, trackingCode, "Order created successfully");
+    }
+
+    /// <summary>
+    /// Builds the PostGIS point from the submitted coordinates. Returns null
+    /// rather than a (0,0) point when either value is missing or unparseable —
+    /// "off the coast of Africa" is worse than no location at all.
+    /// </summary>
+    private static NetTopologySuite.Geometries.Point? BuildPoint(string? latitude, string? longitude)
+    {
+        if (!double.TryParse(latitude, System.Globalization.NumberStyles.Float,
+                System.Globalization.CultureInfo.InvariantCulture, out var lat))
+            return null;
+        if (!double.TryParse(longitude, System.Globalization.NumberStyles.Float,
+                System.Globalization.CultureInfo.InvariantCulture, out var lng))
+            return null;
+        if (lat is < -90 or > 90 || lng is < -180 or > 180)
+            return null;
+
+        // X = longitude, Y = latitude. SRID 4326 matches the column definition.
+        return new NetTopologySuite.Geometries.Point(lng, lat) { SRID = 4326 };
     }
 }

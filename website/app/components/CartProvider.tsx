@@ -14,6 +14,7 @@ import ScheduleDrawer from './ScheduleDrawer';
 import CartDrawer from './CartDrawer';
 import { useAuth } from './AuthProvider';
 import { loadCart, saveCart, type CartItem } from '@/app/lib/storage';
+import { loadLocation } from '@/app/lib/location';
 
 interface ScheduleInfo {
   serviceTitle: string;
@@ -21,6 +22,9 @@ interface ScheduleInfo {
   image: string;
   price: number;
   priceUnit?: string;
+  /** Backend ids, present only for API-sourced services. */
+  serviceId?: number;
+  priceId?: number;
 }
 
 type ScheduleRequest =
@@ -68,11 +72,9 @@ export default function CartProvider({ children }: { children: ReactNode }) {
   // counter past any persisted ids so new items never collide.
   const [loaded, setLoaded] = useState(false);
   useEffect(() => {
-    const rawStored = loadCart();
-    const stored = Array.isArray(rawStored) ? rawStored : [];
+    const stored = loadCart();
     setItems(stored);
     const maxId = stored.reduce((max, item) => {
-      if (!item || typeof item.id !== 'string') return max;
       const n = Number(item.id.replace('item-', ''));
       return Number.isFinite(n) ? Math.max(max, n) : max;
     }, -1);
@@ -129,6 +131,8 @@ export default function CartProvider({ children }: { children: ReactNode }) {
           image: item.image,
           price: item.price,
           priceUnit: item.priceUnit,
+          serviceId: item.serviceId,
+          priceId: item.priceId,
           date: item.date,
           time: item.time,
         });
@@ -169,9 +173,15 @@ export default function CartProvider({ children }: { children: ReactNode }) {
           image: scheduleRequest.image,
           price: scheduleRequest.price,
           priceUnit: scheduleRequest.priceUnit,
+          serviceId: scheduleRequest.serviceId,
+          priceId: scheduleRequest.priceId,
           date,
           time,
           qty: 1,
+          location: (() => {
+            const place = loadLocation();
+            return { address: place.address, lat: place.lat, lng: place.lng };
+          })(),
         };
         setItems((prev) => [...prev, newItem]);
       }

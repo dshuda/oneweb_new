@@ -1,0 +1,1533 @@
+{
+  "version": 1,
+  "categories": [
+    {
+      "name": "Cleaning",
+      "slug": "cleaning",
+      "level": 0,
+      "serviceIcon": "https://lcst.sgp1.cdn.digitaloceanspaces.com/Onetap/web/service-icons/icon_cleaning.svg",
+      "bannerImage": null,
+      "initialPrice": 0,
+      "isTrending": false,
+      "heroTitle": "Professional Deep Cleaning for a Fresh, Healthy Home",
+      "heroSubtitle": "Keep your home spotless with fast, reliable, and professional cleaning services designed for everyday freshness and lasting hygiene.",
+      "children": [
+        {
+          "name": "Home Cleaning",
+          "slug": "cleaning-home-cleaning",
+          "level": 1,
+          "serviceIcon": null,
+          "bannerImage": null,
+          "initialPrice": 0,
+          "isTrending": false,
+          "children": [
+            {
+              "name": "Full Deep Home Cleaning",
+              "slug": "full-deep-home-cleaning",
+              "level": 2,
+              "serviceIcon": null,
+              "bannerImage": "https://lcst.sgp1.cdn.digitaloceanspaces.com/Onetap/web/service-banners/banner_cleaning.png",
+              "initialPrice": 1499,
+              "priceUnit": "/home",
+              "rating": 4.9,
+              "reviewCount": 2400,
+              "isTrending": true,
+              "prices": [
+                {
+                  "name": "1 BHK",
+                  "price": 1499
+                },
+                {
+                  "name": "2 BHK",
+                  "price": 2199
+                },
+                {
+                  "name": "3 BHK",
+                  "price": 2999
+                },
+                {
+                  "name": "4 BHK",
+                  "price": 3799
+                },
+                {
+                  "name": "Duplex",
+                  "price": 4599
+                }
+              ],
+              "children": []
+            },
+            {
+              "name": "Bathroom Deep Cleaning",
+              "slug": "bathroom-deep-cleaning",
+              "level": 2,
+              "serviceIcon": null,
+              "bannerImage": "https://lcst.sgp1.cdn.digitaloceanspaces.com/Onetap/web/service-banners/banner_cleaning.png",
+              "initialPrice": 599,
+              "priceUnit": "/bathroom",
+              "rating": 4.8,
+              "reviewCount": 860,
+              "isTrending": false,
+              "prices": [
+                {
+                  "name": "Standard",
+                  "price": 599
+                },
+                {
+                  "name": "Premium",
+                  "price": 899
+                }
+              ],
+              "children": []
+            },
+            {
+              "name": "Kitchen Deep Cleaning",
+              "slug": "kitchen-deep-cleaning",
+              "level": 2,
+              "serviceIcon": null,
+              "bannerImage": "https://lcst.sgp1.cdn.digitaloceanspaces.com/Onetap/web/service-banners/banner_cleaning.png",
+              "initialPrice": 799,
+              "priceUnit": "/kitchen",
+              "rating": 4.7,
+              "reviewCount": 720,
+              "isTrending": false,
+              "prices": [
+                {
+                  "name": "Modular Kitchen",
+                  "price": 799
+                },
+                {
+                  "name": "Standard Kitchen",
+                  "price": 1099
+                },
+                {
+                  "name": "Large Kitchen",
+                  "price": 1499
+                }
+              ],
+              "children": []
+            }
+          ]
+        },
+        {
+          "name": "Sofa & Carpet",
+          "slug": "cleaning-sofa-and-carpet",
+          "level": 1,
+          "serviceIcon": null,
+          "bannerImage": null,
+          "initialPrice": 0,
+          "isTrending": false,
+          "children": [
+            {
+              "name": "Sofa Steam Cleaning",
+              "slug": "sofa-steam-cleaning",
+              "level": 2,
+              "serviceIcon": null,
+              "bannerImage": "https://lcst.sgp1.cdn.digitaloceanspaces.com/Onetap/web/service-banners/banner_cleaning.png",
+              "initialPrice": 899,
+              "priceUnit": "/sofa",
+              "rating": 4.8,
+              "reviewCount": 640,
+              "isTrending": false,
+              "prices": [
+                {
+                  "name": "2 Seater",
+                  "price": 899
+                },
+                {
+                  "name": "3 Seater",
+                  "price": 1299
+                }
+              ],
+              "children": []
+            },
+            {
+              "name": "Carpet Shampoo Cleaning",
+              "slug": "carpet-shampoo-cleaning",
+              "level": 2,
+              "serviceIcon": null,
+              "bannerImage": "https://lcst.sgp1.cdn.digitaloceanspaces.com/Onetap/web/service-banners/banner_cleaning.png",
+              "initialPrice": 749,
+              "priceUnit": "/carpet",
+              "rating": 4.7,
+              "reviewCount": 510,
+              "isTrending": false,
+              "prices": [],
+              "children": []
+            },
+            {
+              "name": "Mattress Cleaning",
+              "slug": "mattress-cleaning",
+              "level": 2,
+              "serviceIcon": null,
+              "bannerImage": "https://lcst.sgp1.cdn.digitaloceanspaces.com/Onetap/web/service-banners/banner_cleaning.png",
+              "initialPrice": 699,
+              "priceUnit": "/mattress",
+              "rating": 4.9,
+              "reviewCount": 430,
+              "isTrending": false,
+              "prices": [],
+              "children": []
+            }
+          ]
+        },
+        {
+          "name": "Bathroom Cleaning",
+          "slug": "cleaning-bathroom-cleaning",
+          "level": 1,
+          "serviceIcon": null,
+          "bannerImage": null,
+          "initialPrice": 0,
+          "isTrending": false,
+          "children": [
+            {
+              "name": "Bathroom Scrub & Polish",
+              "slug": "bathroom-scrub-and-polish",
+              "level": 2,
+              "serviceIcon": null,
+              "bannerImage": "https://lcst.sgp1.cdn.digitaloceanspaces.com/Onetap/web/service-banners/banner_cleaning.png",
+              "initialPrice": 499,
+              "priceUnit": "/bathroom",
+              "rating": 4.6,
+              "reviewCount": 380,
+              "isTrending": false,
+              "prices": [
+                {
+                  "name": "Standard",
+                  "price": 499
+                },
+                {
+                  "name": "Premium",
+                  "price": 799
+                }
+              ],
+              "children": []
+            },
+            {
+              "name": "Toilet Deep Clean",
+              "slug": "toilet-deep-clean",
+              "level": 2,
+              "serviceIcon": null,
+              "bannerImage": "https://lcst.sgp1.cdn.digitaloceanspaces.com/Onetap/web/service-banners/banner_cleaning.png",
+              "initialPrice": 349,
+              "priceUnit": "/toilet",
+              "rating": 4.7,
+              "reviewCount": 290,
+              "isTrending": false,
+              "prices": [],
+              "children": []
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Appliance Repair",
+      "slug": "appliance-repair",
+      "level": 0,
+      "serviceIcon": "https://lcst.sgp1.cdn.digitaloceanspaces.com/Onetap/web/service-icons/icon_appliance.svg",
+      "bannerImage": null,
+      "initialPrice": 0,
+      "isTrending": false,
+      "heroTitle": "Restore Performance with Expert Appliance Repair",
+      "heroSubtitle": "Keep your essential home appliances running smoothly with fast, reliable, and professional repair services designed for lasting performance and everyday convenience.",
+      "children": [
+        {
+          "name": "AC Servicing",
+          "slug": "appliance-repair-ac-servicing",
+          "level": 1,
+          "serviceIcon": null,
+          "bannerImage": null,
+          "initialPrice": 0,
+          "isTrending": false,
+          "children": [
+            {
+              "name": "AC Jet Wash",
+              "slug": "ac-jet-wash",
+              "level": 2,
+              "serviceIcon": null,
+              "bannerImage": "https://lcst.sgp1.cdn.digitaloceanspaces.com/Onetap/web/banner_appliance_repair.png",
+              "initialPrice": 1449,
+              "priceUnit": "/person",
+              "rating": 4.8,
+              "reviewCount": 1100,
+              "isTrending": false,
+              "prices": [
+                {
+                  "name": "1-1.5 Ton",
+                  "price": 1449
+                },
+                {
+                  "name": "2-3 Ton",
+                  "price": 1899
+                },
+                {
+                  "name": "3-5 Ton",
+                  "price": 2499
+                },
+                {
+                  "name": "Window AC",
+                  "price": 1299
+                }
+              ],
+              "children": []
+            },
+            {
+              "name": "AC Basic Service",
+              "slug": "ac-basic-service",
+              "level": 2,
+              "serviceIcon": null,
+              "bannerImage": "https://lcst.sgp1.cdn.digitaloceanspaces.com/Onetap/web/banner_appliance_repair.png",
+              "initialPrice": 449,
+              "priceUnit": "/ton",
+              "rating": 4.7,
+              "reviewCount": 950,
+              "isTrending": false,
+              "prices": [
+                {
+                  "name": "1-1.5 Ton",
+                  "price": 449
+                },
+                {
+                  "name": "2-3 Ton",
+                  "price": 650
+                },
+                {
+                  "name": "3-5 Ton",
+                  "price": 850
+                }
+              ],
+              "children": []
+            },
+            {
+              "name": "AC Foam Wash",
+              "slug": "ac-foam-wash",
+              "level": 2,
+              "serviceIcon": null,
+              "bannerImage": "https://lcst.sgp1.cdn.digitaloceanspaces.com/Onetap/web/banner_appliance_repair.png",
+              "initialPrice": 1400,
+              "priceUnit": "/ton",
+              "rating": 4.8,
+              "reviewCount": 780,
+              "isTrending": false,
+              "prices": [
+                {
+                  "name": "Split AC",
+                  "price": 1400
+                },
+                {
+                  "name": "Window AC",
+                  "price": 1600
+                }
+              ],
+              "children": []
+            },
+            {
+              "name": "AC Gas Refill",
+              "slug": "ac-gas-refill",
+              "level": 2,
+              "serviceIcon": null,
+              "bannerImage": "https://lcst.sgp1.cdn.digitaloceanspaces.com/Onetap/web/banner_appliance_repair.png",
+              "initialPrice": 1200,
+              "priceUnit": "/refill",
+              "rating": 4.6,
+              "reviewCount": 640,
+              "isTrending": false,
+              "prices": [],
+              "children": []
+            }
+          ]
+        },
+        {
+          "name": "Oven Service",
+          "slug": "appliance-repair-oven-service",
+          "level": 1,
+          "serviceIcon": null,
+          "bannerImage": null,
+          "initialPrice": 0,
+          "isTrending": false,
+          "children": [
+            {
+              "name": "Oven Deep Cleaning",
+              "slug": "oven-deep-cleaning",
+              "level": 2,
+              "serviceIcon": null,
+              "bannerImage": "https://lcst.sgp1.cdn.digitaloceanspaces.com/Onetap/web/banner_appliance_repair.png",
+              "initialPrice": 1200,
+              "priceUnit": "/oven",
+              "rating": 4.7,
+              "reviewCount": 420,
+              "isTrending": false,
+              "prices": [
+                {
+                  "name": "Standard Oven",
+                  "price": 1200
+                },
+                {
+                  "name": "Built-in Oven",
+                  "price": 1500
+                }
+              ],
+              "children": []
+            },
+            {
+              "name": "Oven Heating Repair",
+              "slug": "oven-heating-repair",
+              "level": 2,
+              "serviceIcon": null,
+              "bannerImage": "https://lcst.sgp1.cdn.digitaloceanspaces.com/Onetap/web/banner_appliance_repair.png",
+              "initialPrice": 850,
+              "priceUnit": "/repair",
+              "rating": 4.8,
+              "reviewCount": 350,
+              "isTrending": false,
+              "prices": [],
+              "children": []
+            },
+            {
+              "name": "Oven Installation",
+              "slug": "oven-installation",
+              "level": 2,
+              "serviceIcon": null,
+              "bannerImage": "https://lcst.sgp1.cdn.digitaloceanspaces.com/Onetap/web/banner_appliance_repair.png",
+              "initialPrice": 1500,
+              "priceUnit": "/installation",
+              "rating": 4.6,
+              "reviewCount": 210,
+              "isTrending": false,
+              "prices": [],
+              "children": []
+            }
+          ]
+        },
+        {
+          "name": "TV Service",
+          "slug": "appliance-repair-tv-service",
+          "level": 1,
+          "serviceIcon": null,
+          "bannerImage": null,
+          "initialPrice": 0,
+          "isTrending": false,
+          "children": [
+            {
+              "name": "TV Screen Repair",
+              "slug": "tv-screen-repair",
+              "level": 2,
+              "serviceIcon": null,
+              "bannerImage": "https://lcst.sgp1.cdn.digitaloceanspaces.com/Onetap/web/banner_appliance_repair.png",
+              "initialPrice": 2500,
+              "priceUnit": "/screen",
+              "rating": 4.7,
+              "reviewCount": 530,
+              "isTrending": false,
+              "prices": [],
+              "children": []
+            },
+            {
+              "name": "TV Wall Mounting",
+              "slug": "tv-wall-mounting",
+              "level": 2,
+              "serviceIcon": null,
+              "bannerImage": "https://lcst.sgp1.cdn.digitaloceanspaces.com/Onetap/web/banner_appliance_repair.png",
+              "initialPrice": 1500,
+              "priceUnit": "/mount",
+              "rating": 4.9,
+              "reviewCount": 480,
+              "isTrending": false,
+              "prices": [],
+              "children": []
+            },
+            {
+              "name": "TV Panel Checkup",
+              "slug": "tv-panel-checkup",
+              "level": 2,
+              "serviceIcon": null,
+              "bannerImage": "https://lcst.sgp1.cdn.digitaloceanspaces.com/Onetap/web/banner_appliance_repair.png",
+              "initialPrice": 900,
+              "priceUnit": "/checkup",
+              "rating": 4.8,
+              "reviewCount": 310,
+              "isTrending": false,
+              "prices": [],
+              "children": []
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Shifting",
+      "slug": "shifting",
+      "level": 0,
+      "serviceIcon": "https://lcst.sgp1.cdn.digitaloceanspaces.com/Onetap/web/service-icons/icon_shifting.svg",
+      "bannerImage": null,
+      "initialPrice": 0,
+      "isTrending": false,
+      "heroTitle": "Stress-Free Moving with Trusted Shifting Services",
+      "heroSubtitle": "Move homes or offices with complete peace of mind — careful packing, safe transport, and professional shifting crews at one tap.",
+      "children": [
+        {
+          "name": "Home Shifting",
+          "slug": "shifting-home-shifting",
+          "level": 1,
+          "serviceIcon": null,
+          "bannerImage": null,
+          "initialPrice": 0,
+          "isTrending": false,
+          "children": [
+            {
+              "name": "1-Bedroom Home Shift",
+              "slug": "1-bedroom-home-shift",
+              "level": 2,
+              "serviceIcon": null,
+              "bannerImage": "https://lcst.sgp1.cdn.digitaloceanspaces.com/Onetap/web/service-banners/banner_painting.png",
+              "initialPrice": 4500,
+              "priceUnit": "/trip",
+              "rating": 4.8,
+              "reviewCount": 720,
+              "isTrending": false,
+              "prices": [
+                {
+                  "name": "Standard",
+                  "price": 4500
+                },
+                {
+                  "name": "With Packing",
+                  "price": 6500
+                },
+                {
+                  "name": "Premium",
+                  "price": 8000
+                }
+              ],
+              "children": []
+            },
+            {
+              "name": "3-Bedroom Home Shift",
+              "slug": "3-bedroom-home-shift",
+              "level": 2,
+              "serviceIcon": null,
+              "bannerImage": "https://lcst.sgp1.cdn.digitaloceanspaces.com/Onetap/web/service-banners/banner_painting.png",
+              "initialPrice": 8500,
+              "priceUnit": "/trip",
+              "rating": 4.9,
+              "reviewCount": 940,
+              "isTrending": false,
+              "prices": [
+                {
+                  "name": "Standard",
+                  "price": 8500
+                },
+                {
+                  "name": "With Packing",
+                  "price": 11500
+                },
+                {
+                  "name": "Full Service",
+                  "price": 14000
+                },
+                {
+                  "name": "Premium",
+                  "price": 17000
+                }
+              ],
+              "children": []
+            },
+            {
+              "name": "Packing & Unpacking",
+              "slug": "packing-and-unpacking",
+              "level": 2,
+              "serviceIcon": null,
+              "bannerImage": "https://lcst.sgp1.cdn.digitaloceanspaces.com/Onetap/web/service-banners/banner_painting.png",
+              "initialPrice": 2000,
+              "priceUnit": "/home",
+              "rating": 4.7,
+              "reviewCount": 560,
+              "isTrending": false,
+              "prices": [
+                {
+                  "name": "Basic Packing",
+                  "price": 2000
+                },
+                {
+                  "name": "Premium Packing",
+                  "price": 3500
+                }
+              ],
+              "children": []
+            }
+          ]
+        },
+        {
+          "name": "Office Shifting",
+          "slug": "shifting-office-shifting",
+          "level": 1,
+          "serviceIcon": null,
+          "bannerImage": null,
+          "initialPrice": 0,
+          "isTrending": false,
+          "children": [
+            {
+              "name": "Small Office Shift",
+              "slug": "small-office-shift",
+              "level": 2,
+              "serviceIcon": null,
+              "bannerImage": "https://lcst.sgp1.cdn.digitaloceanspaces.com/Onetap/web/service-banners/banner_painting.png",
+              "initialPrice": 6000,
+              "priceUnit": "/office",
+              "rating": 4.8,
+              "reviewCount": 380,
+              "isTrending": false,
+              "prices": [
+                {
+                  "name": "1-2 Rooms",
+                  "price": 6000
+                },
+                {
+                  "name": "3-4 Rooms",
+                  "price": 9500
+                }
+              ],
+              "children": []
+            },
+            {
+              "name": "Corporate Relocation",
+              "slug": "corporate-relocation",
+              "level": 2,
+              "serviceIcon": null,
+              "bannerImage": "https://lcst.sgp1.cdn.digitaloceanspaces.com/Onetap/web/service-banners/banner_painting.png",
+              "initialPrice": 15000,
+              "priceUnit": "/project",
+              "rating": 4.9,
+              "reviewCount": 290,
+              "isTrending": false,
+              "prices": [
+                {
+                  "name": "5-10 Seats",
+                  "price": 15000
+                },
+                {
+                  "name": "10-25 Seats",
+                  "price": 25000
+                },
+                {
+                  "name": "25+ Seats",
+                  "price": 40000
+                }
+              ],
+              "children": []
+            }
+          ]
+        },
+        {
+          "name": "Vehicle Shifting",
+          "slug": "shifting-vehicle-shifting",
+          "level": 1,
+          "serviceIcon": null,
+          "bannerImage": null,
+          "initialPrice": 0,
+          "isTrending": false,
+          "children": [
+            {
+              "name": "Bike Shifting",
+              "slug": "bike-shifting",
+              "level": 2,
+              "serviceIcon": null,
+              "bannerImage": "https://lcst.sgp1.cdn.digitaloceanspaces.com/Onetap/web/service-banners/banner_painting.png",
+              "initialPrice": 1800,
+              "priceUnit": "/bike",
+              "rating": 4.7,
+              "reviewCount": 310,
+              "isTrending": false,
+              "prices": [],
+              "children": []
+            },
+            {
+              "name": "Car Shifting",
+              "slug": "car-shifting",
+              "level": 2,
+              "serviceIcon": null,
+              "bannerImage": "https://lcst.sgp1.cdn.digitaloceanspaces.com/Onetap/web/service-banners/banner_painting.png",
+              "initialPrice": 3500,
+              "priceUnit": "/car",
+              "rating": 4.8,
+              "reviewCount": 420,
+              "isTrending": false,
+              "prices": [],
+              "children": []
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Electric & Plumbing",
+      "slug": "electric-plumbing",
+      "level": 0,
+      "serviceIcon": "https://lcst.sgp1.cdn.digitaloceanspaces.com/Onetap/web/service-icons/icon_plumbing.svg",
+      "bannerImage": null,
+      "initialPrice": 0,
+      "isTrending": false,
+      "heroTitle": "Safe & Reliable Electric & Plumbing Solutions",
+      "heroSubtitle": "Certified electricians and plumbers for installations, repairs, and maintenance — quick response, clean work, lasting results.",
+      "children": [
+        {
+          "name": "Electrician",
+          "slug": "electric-plumbing-electrician",
+          "level": 1,
+          "serviceIcon": null,
+          "bannerImage": null,
+          "initialPrice": 0,
+          "isTrending": false,
+          "children": [
+            {
+              "name": "Master Electrical Checkup",
+              "slug": "master-electrical-checkup",
+              "level": 2,
+              "serviceIcon": null,
+              "bannerImage": "https://lcst.sgp1.cdn.digitaloceanspaces.com/Onetap/web/service-banners/banner_electrical_checkup.png",
+              "initialPrice": 499,
+              "priceUnit": "/checkup",
+              "rating": 4.8,
+              "reviewCount": 1100,
+              "isTrending": true,
+              "prices": [
+                {
+                  "name": "1 BHK",
+                  "price": 499
+                },
+                {
+                  "name": "3 BHK",
+                  "price": 899
+                }
+              ],
+              "children": []
+            },
+            {
+              "name": "Ceiling Fan Installation",
+              "slug": "ceiling-fan-installation",
+              "level": 2,
+              "serviceIcon": null,
+              "bannerImage": "https://lcst.sgp1.cdn.digitaloceanspaces.com/Onetap/web/service-banners/banner_electrical_checkup.png",
+              "initialPrice": 700,
+              "priceUnit": "/fan",
+              "rating": 4.7,
+              "reviewCount": 640,
+              "isTrending": false,
+              "prices": [],
+              "children": []
+            },
+            {
+              "name": "Wiring & Rewiring",
+              "slug": "wiring-and-rewiring",
+              "level": 2,
+              "serviceIcon": null,
+              "bannerImage": "https://lcst.sgp1.cdn.digitaloceanspaces.com/Onetap/web/service-banners/banner_electrical_checkup.png",
+              "initialPrice": 3500,
+              "priceUnit": "/point",
+              "rating": 4.8,
+              "reviewCount": 510,
+              "isTrending": false,
+              "prices": [
+                {
+                  "name": "Per Point",
+                  "price": 3500
+                },
+                {
+                  "name": "Single Room",
+                  "price": 9000
+                },
+                {
+                  "name": "Full Home",
+                  "price": 20000
+                }
+              ],
+              "children": []
+            }
+          ]
+        },
+        {
+          "name": "Plumber",
+          "slug": "electric-plumbing-plumber",
+          "level": 1,
+          "serviceIcon": null,
+          "bannerImage": null,
+          "initialPrice": 0,
+          "isTrending": false,
+          "children": [
+            {
+              "name": "Tap & Sink Repair",
+              "slug": "tap-and-sink-repair",
+              "level": 2,
+              "serviceIcon": null,
+              "bannerImage": "https://lcst.sgp1.cdn.digitaloceanspaces.com/Onetap/web/service-banners/banner_electrical_checkup.png",
+              "initialPrice": 450,
+              "priceUnit": "/tap",
+              "rating": 4.7,
+              "reviewCount": 830,
+              "isTrending": false,
+              "prices": [],
+              "children": []
+            },
+            {
+              "name": "Water Leak Fixing",
+              "slug": "water-leak-fixing",
+              "level": 2,
+              "serviceIcon": null,
+              "bannerImage": "https://lcst.sgp1.cdn.digitaloceanspaces.com/Onetap/web/service-banners/banner_electrical_checkup.png",
+              "initialPrice": 600,
+              "priceUnit": "/leak",
+              "rating": 4.8,
+              "reviewCount": 690,
+              "isTrending": false,
+              "prices": [],
+              "children": []
+            },
+            {
+              "name": "Bathroom Fitting",
+              "slug": "bathroom-fitting",
+              "level": 2,
+              "serviceIcon": null,
+              "bannerImage": "https://lcst.sgp1.cdn.digitaloceanspaces.com/Onetap/web/service-banners/banner_electrical_checkup.png",
+              "initialPrice": 2500,
+              "priceUnit": "/fitting",
+              "rating": 4.6,
+              "reviewCount": 370,
+              "isTrending": false,
+              "prices": [
+                {
+                  "name": "Standard",
+                  "price": 2500
+                },
+                {
+                  "name": "Premium",
+                  "price": 4500
+                }
+              ],
+              "children": []
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Security",
+      "slug": "security",
+      "level": 0,
+      "serviceIcon": "https://lcst.sgp1.cdn.digitaloceanspaces.com/Onetap/web/service-icons/icon_security.svg",
+      "bannerImage": null,
+      "initialPrice": 0,
+      "isTrending": false,
+      "heroTitle": "Protect What Matters with Professional Security Services",
+      "heroSubtitle": "CCTV installation, trained security guards, and smart locks — comprehensive protection for your home and business, one tap away.",
+      "children": [
+        {
+          "name": "CCTV Installation",
+          "slug": "security-cctv-installation",
+          "level": 1,
+          "serviceIcon": null,
+          "bannerImage": null,
+          "initialPrice": 0,
+          "isTrending": false,
+          "children": [
+            {
+              "name": "4-Camera CCTV Package",
+              "slug": "4-camera-cctv-package",
+              "level": 2,
+              "serviceIcon": null,
+              "bannerImage": "https://lcst.sgp1.cdn.digitaloceanspaces.com/Onetap/web/service-banners/banner_electrical_checkup.png",
+              "initialPrice": 12000,
+              "priceUnit": "/package",
+              "rating": 4.8,
+              "reviewCount": 520,
+              "isTrending": false,
+              "prices": [
+                {
+                  "name": "4 Camera + DVR",
+                  "price": 12000
+                },
+                {
+                  "name": "4 Camera + Cloud",
+                  "price": 14500
+                }
+              ],
+              "children": []
+            },
+            {
+              "name": "Single Camera Install",
+              "slug": "single-camera-install",
+              "level": 2,
+              "serviceIcon": null,
+              "bannerImage": "https://lcst.sgp1.cdn.digitaloceanspaces.com/Onetap/web/service-banners/banner_electrical_checkup.png",
+              "initialPrice": 3500,
+              "priceUnit": "/camera",
+              "rating": 4.7,
+              "reviewCount": 640,
+              "isTrending": false,
+              "prices": [],
+              "children": []
+            },
+            {
+              "name": "CCTV Maintenance",
+              "slug": "cctv-maintenance",
+              "level": 2,
+              "serviceIcon": null,
+              "bannerImage": "https://lcst.sgp1.cdn.digitaloceanspaces.com/Onetap/web/service-banners/banner_electrical_checkup.png",
+              "initialPrice": 800,
+              "priceUnit": "/visit",
+              "rating": 4.8,
+              "reviewCount": 310,
+              "isTrending": false,
+              "prices": [],
+              "children": []
+            }
+          ]
+        },
+        {
+          "name": "Security Guard",
+          "slug": "security-security-guard",
+          "level": 1,
+          "serviceIcon": null,
+          "bannerImage": null,
+          "initialPrice": 0,
+          "isTrending": false,
+          "children": [
+            {
+              "name": "Day Guard Service",
+              "slug": "day-guard-service",
+              "level": 2,
+              "serviceIcon": null,
+              "bannerImage": "https://lcst.sgp1.cdn.digitaloceanspaces.com/Onetap/web/service-banners/banner_electrical_checkup.png",
+              "initialPrice": 18000,
+              "priceUnit": "/month",
+              "rating": 4.7,
+              "reviewCount": 430,
+              "isTrending": false,
+              "prices": [
+                {
+                  "name": "1 Guard",
+                  "price": 18000
+                },
+                {
+                  "name": "2 Guards",
+                  "price": 32000
+                }
+              ],
+              "children": []
+            },
+            {
+              "name": "Night Guard Service",
+              "slug": "night-guard-service",
+              "level": 2,
+              "serviceIcon": null,
+              "bannerImage": "https://lcst.sgp1.cdn.digitaloceanspaces.com/Onetap/web/service-banners/banner_electrical_checkup.png",
+              "initialPrice": 20000,
+              "priceUnit": "/month",
+              "rating": 4.8,
+              "reviewCount": 460,
+              "isTrending": false,
+              "prices": [
+                {
+                  "name": "1 Guard",
+                  "price": 20000
+                },
+                {
+                  "name": "2 Guards",
+                  "price": 35000
+                }
+              ],
+              "children": []
+            }
+          ]
+        },
+        {
+          "name": "Smart Lock",
+          "slug": "security-smart-lock",
+          "level": 1,
+          "serviceIcon": null,
+          "bannerImage": null,
+          "initialPrice": 0,
+          "isTrending": false,
+          "children": [
+            {
+              "name": "Smart Lock Installation",
+              "slug": "smart-lock-installation",
+              "level": 2,
+              "serviceIcon": null,
+              "bannerImage": "https://lcst.sgp1.cdn.digitaloceanspaces.com/Onetap/web/service-banners/banner_electrical_checkup.png",
+              "initialPrice": 9500,
+              "priceUnit": "/lock",
+              "rating": 4.9,
+              "reviewCount": 280,
+              "isTrending": false,
+              "prices": [],
+              "children": []
+            },
+            {
+              "name": "Access Control Setup",
+              "slug": "access-control-setup",
+              "level": 2,
+              "serviceIcon": null,
+              "bannerImage": "https://lcst.sgp1.cdn.digitaloceanspaces.com/Onetap/web/service-banners/banner_electrical_checkup.png",
+              "initialPrice": 15000,
+              "priceUnit": "/system",
+              "rating": 4.7,
+              "reviewCount": 190,
+              "isTrending": false,
+              "prices": [],
+              "children": []
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Pest Control",
+      "slug": "pest-control",
+      "level": 0,
+      "serviceIcon": null,
+      "bannerImage": null,
+      "initialPrice": 0,
+      "isTrending": false,
+      "heroTitle": "Keep Your Home Pest-Free with Expert Pest Control Services",
+      "heroSubtitle": "Safe and effective treatments for cockroaches, termites, bed bugs, and more — protecting your family and home all year round.",
+      "children": [
+        {
+          "name": "General Pest",
+          "slug": "pest-control-general-pest",
+          "level": 1,
+          "serviceIcon": null,
+          "bannerImage": null,
+          "initialPrice": 0,
+          "isTrending": false,
+          "children": [
+            {
+              "name": "General Pest Control",
+              "slug": "general-pest-control",
+              "level": 2,
+              "serviceIcon": null,
+              "bannerImage": "https://lcst.sgp1.cdn.digitaloceanspaces.com/Onetap/web/service-banners/banner_cleaning.png",
+              "initialPrice": 1200,
+              "priceUnit": "/home",
+              "rating": 4.8,
+              "reviewCount": 980,
+              "isTrending": false,
+              "prices": [
+                {
+                  "name": "1 BHK",
+                  "price": 1200
+                },
+                {
+                  "name": "2 BHK",
+                  "price": 1600
+                },
+                {
+                  "name": "3 BHK",
+                  "price": 2100
+                }
+              ],
+              "children": []
+            },
+            {
+              "name": "Cockroach Treatment",
+              "slug": "cockroach-treatment",
+              "level": 2,
+              "serviceIcon": null,
+              "bannerImage": "https://lcst.sgp1.cdn.digitaloceanspaces.com/Onetap/web/service-banners/banner_cleaning.png",
+              "initialPrice": 900,
+              "priceUnit": "/home",
+              "rating": 4.7,
+              "reviewCount": 740,
+              "isTrending": false,
+              "prices": [
+                {
+                  "name": "1 BHK",
+                  "price": 900
+                },
+                {
+                  "name": "3 BHK",
+                  "price": 1500
+                }
+              ],
+              "children": []
+            }
+          ]
+        },
+        {
+          "name": "Termite",
+          "slug": "pest-control-termite",
+          "level": 1,
+          "serviceIcon": null,
+          "bannerImage": null,
+          "initialPrice": 0,
+          "isTrending": false,
+          "children": [
+            {
+              "name": "Termite Inspection",
+              "slug": "termite-inspection",
+              "level": 2,
+              "serviceIcon": null,
+              "bannerImage": "https://lcst.sgp1.cdn.digitaloceanspaces.com/Onetap/web/service-banners/banner_cleaning.png",
+              "initialPrice": 1500,
+              "priceUnit": "/inspection",
+              "rating": 4.8,
+              "reviewCount": 420,
+              "isTrending": false,
+              "prices": [],
+              "children": []
+            },
+            {
+              "name": "Termite Treatment",
+              "slug": "termite-treatment",
+              "level": 2,
+              "serviceIcon": null,
+              "bannerImage": "https://lcst.sgp1.cdn.digitaloceanspaces.com/Onetap/web/service-banners/banner_cleaning.png",
+              "initialPrice": 6000,
+              "priceUnit": "/home",
+              "rating": 4.9,
+              "reviewCount": 560,
+              "isTrending": false,
+              "prices": [
+                {
+                  "name": "1 BHK",
+                  "price": 6000
+                },
+                {
+                  "name": "2 BHK",
+                  "price": 9000
+                }
+              ],
+              "children": []
+            }
+          ]
+        },
+        {
+          "name": "Bed Bug",
+          "slug": "pest-control-bed-bug",
+          "level": 1,
+          "serviceIcon": null,
+          "bannerImage": null,
+          "initialPrice": 0,
+          "isTrending": false,
+          "children": [
+            {
+              "name": "Bed Bug Heat Treatment",
+              "slug": "bed-bug-heat-treatment",
+              "level": 2,
+              "serviceIcon": null,
+              "bannerImage": "https://lcst.sgp1.cdn.digitaloceanspaces.com/Onetap/web/service-banners/banner_cleaning.png",
+              "initialPrice": 4500,
+              "priceUnit": "/home",
+              "rating": 4.8,
+              "reviewCount": 340,
+              "isTrending": false,
+              "prices": [
+                {
+                  "name": "1 Room",
+                  "price": 4500
+                },
+                {
+                  "name": "2 Rooms",
+                  "price": 7500
+                }
+              ],
+              "children": []
+            },
+            {
+              "name": "Bed Bug Spray Service",
+              "slug": "bed-bug-spray-service",
+              "level": 2,
+              "serviceIcon": null,
+              "bannerImage": "https://lcst.sgp1.cdn.digitaloceanspaces.com/Onetap/web/service-banners/banner_cleaning.png",
+              "initialPrice": 1800,
+              "priceUnit": "/room",
+              "rating": 4.7,
+              "reviewCount": 260,
+              "isTrending": false,
+              "prices": [],
+              "children": []
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Trips & Travels",
+      "slug": "trips-travels",
+      "level": 0,
+      "serviceIcon": "https://lcst.sgp1.cdn.digitaloceanspaces.com/Onetap/web/service-icons/icon_travel.svg",
+      "bannerImage": null,
+      "initialPrice": 0,
+      "isTrending": false,
+      "heroTitle": "Explore Bangladesh with Curated Trips & Travels",
+      "heroSubtitle": "Hand-picked city tours, weekend getaways, and spiritual journeys — comfortable, well-planned travel experiences at one tap.",
+      "children": [
+        {
+          "name": "City Tours",
+          "slug": "trips-travels-city-tours",
+          "level": 1,
+          "serviceIcon": null,
+          "bannerImage": null,
+          "initialPrice": 0,
+          "isTrending": false,
+          "children": [
+            {
+              "name": "Dhaka City Day Tour",
+              "slug": "dhaka-city-day-tour",
+              "level": 2,
+              "serviceIcon": null,
+              "bannerImage": "https://lcst.sgp1.cdn.digitaloceanspaces.com/Onetap/web/service-banners/banner_trim_-_spa.png",
+              "initialPrice": 2500,
+              "priceUnit": "/person",
+              "rating": 4.7,
+              "reviewCount": 520,
+              "isTrending": false,
+              "prices": [
+                {
+                  "name": "Solo",
+                  "price": 2500
+                },
+                {
+                  "name": "Couple",
+                  "price": 4500
+                },
+                {
+                  "name": "Group (4+)",
+                  "price": 1800
+                }
+              ],
+              "children": []
+            },
+            {
+              "name": "Cox's Bazar Tour",
+              "slug": "cox-s-bazar-tour",
+              "level": 2,
+              "serviceIcon": null,
+              "bannerImage": "https://lcst.sgp1.cdn.digitaloceanspaces.com/Onetap/web/service-banners/banner_trim_-_spa.png",
+              "initialPrice": 7500,
+              "priceUnit": "/person",
+              "rating": 4.9,
+              "reviewCount": 780,
+              "isTrending": false,
+              "prices": [
+                {
+                  "name": "3D/2N",
+                  "price": 7500
+                },
+                {
+                  "name": "4D/3N",
+                  "price": 9500
+                },
+                {
+                  "name": "5D/4N",
+                  "price": 11500
+                },
+                {
+                  "name": "Family Package",
+                  "price": 11000
+                },
+                {
+                  "name": "Premium",
+                  "price": 14000
+                }
+              ],
+              "children": []
+            }
+          ]
+        },
+        {
+          "name": "Weekend Getaways",
+          "slug": "trips-travels-weekend-getaways",
+          "level": 1,
+          "serviceIcon": null,
+          "bannerImage": null,
+          "initialPrice": 0,
+          "isTrending": false,
+          "children": [
+            {
+              "name": "Sajek Valley Getaway",
+              "slug": "sajek-valley-getaway",
+              "level": 2,
+              "serviceIcon": null,
+              "bannerImage": "https://lcst.sgp1.cdn.digitaloceanspaces.com/Onetap/web/service-banners/banner_painting.png",
+              "initialPrice": 8500,
+              "priceUnit": "/person",
+              "rating": 4.8,
+              "reviewCount": 640,
+              "isTrending": false,
+              "prices": [
+                {
+                  "name": "2D/1N",
+                  "price": 8500
+                },
+                {
+                  "name": "3D/2N",
+                  "price": 11500
+                },
+                {
+                  "name": "4D/3N",
+                  "price": 14500
+                },
+                {
+                  "name": "Premium",
+                  "price": 18000
+                }
+              ],
+              "children": []
+            },
+            {
+              "name": "Sylhet Tea Garden Tour",
+              "slug": "sylhet-tea-garden-tour",
+              "level": 2,
+              "serviceIcon": null,
+              "bannerImage": "https://lcst.sgp1.cdn.digitaloceanspaces.com/Onetap/web/service-banners/banner_painting.png",
+              "initialPrice": 6500,
+              "priceUnit": "/person",
+              "rating": 4.8,
+              "reviewCount": 430,
+              "isTrending": false,
+              "prices": [
+                {
+                  "name": "2D/1N",
+                  "price": 6500
+                },
+                {
+                  "name": "3D/2N",
+                  "price": 9000
+                },
+                {
+                  "name": "4D/3N",
+                  "price": 11500
+                }
+              ],
+              "children": []
+            }
+          ]
+        },
+        {
+          "name": "Umrah Packages",
+          "slug": "trips-travels-umrah-packages",
+          "level": 1,
+          "serviceIcon": null,
+          "bannerImage": null,
+          "initialPrice": 0,
+          "isTrending": false,
+          "children": [
+            {
+              "name": "10-Day Economy Umrah",
+              "slug": "10-day-economy-umrah",
+              "level": 2,
+              "serviceIcon": null,
+              "bannerImage": "https://lcst.sgp1.cdn.digitaloceanspaces.com/Onetap/web/service-banners/banner_trim_-_spa.png",
+              "initialPrice": 85000,
+              "priceUnit": "/person",
+              "rating": 4.9,
+              "reviewCount": 380,
+              "isTrending": false,
+              "prices": [
+                {
+                  "name": "Economy",
+                  "price": 85000
+                },
+                {
+                  "name": "Standard",
+                  "price": 98000
+                }
+              ],
+              "children": []
+            },
+            {
+              "name": "14-Day Comfort Umrah",
+              "slug": "14-day-comfort-umrah",
+              "level": 2,
+              "serviceIcon": null,
+              "bannerImage": "https://lcst.sgp1.cdn.digitaloceanspaces.com/Onetap/web/service-banners/banner_trim_-_spa.png",
+              "initialPrice": 115000,
+              "priceUnit": "/person",
+              "rating": 4.9,
+              "reviewCount": 290,
+              "isTrending": false,
+              "prices": [
+                {
+                  "name": "Comfort",
+                  "price": 115000
+                },
+                {
+                  "name": "Premium",
+                  "price": 140000
+                }
+              ],
+              "children": []
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Gadget Repair",
+      "slug": "gadget-repair",
+      "level": 0,
+      "serviceIcon": "https://lcst.sgp1.cdn.digitaloceanspaces.com/Onetap/web/service-icons/icon_electronics.svg",
+      "bannerImage": null,
+      "initialPrice": 0,
+      "isTrending": false,
+      "heroTitle": "Fix It Fast with Expert Gadget Repair Services",
+      "heroSubtitle": "Skilled technicians for phones, laptops, tablets, and cameras — genuine parts and quick turnaround for all your gadgets.",
+      "children": [
+        {
+          "name": "Phone Repair",
+          "slug": "gadget-repair-phone-repair",
+          "level": 1,
+          "serviceIcon": null,
+          "bannerImage": null,
+          "initialPrice": 0,
+          "isTrending": false,
+          "children": [
+            {
+              "name": "Screen Replacement",
+              "slug": "screen-replacement",
+              "level": 2,
+              "serviceIcon": null,
+              "bannerImage": "https://lcst.sgp1.cdn.digitaloceanspaces.com/Onetap/web/service-banners/banner_electrical_checkup.png",
+              "initialPrice": 2500,
+              "priceUnit": "/phone",
+              "rating": 4.8,
+              "reviewCount": 1200,
+              "isTrending": false,
+              "prices": [],
+              "children": []
+            },
+            {
+              "name": "Battery Replacement",
+              "slug": "battery-replacement",
+              "level": 2,
+              "serviceIcon": null,
+              "bannerImage": "https://lcst.sgp1.cdn.digitaloceanspaces.com/Onetap/web/service-banners/banner_electrical_checkup.png",
+              "initialPrice": 1200,
+              "priceUnit": "/phone",
+              "rating": 4.7,
+              "reviewCount": 980,
+              "isTrending": false,
+              "prices": [],
+              "children": []
+            },
+            {
+              "name": "Charging Port Fix",
+              "slug": "charging-port-fix",
+              "level": 2,
+              "serviceIcon": null,
+              "bannerImage": "https://lcst.sgp1.cdn.digitaloceanspaces.com/Onetap/web/service-banners/banner_electrical_checkup.png",
+              "initialPrice": 900,
+              "priceUnit": "/phone",
+              "rating": 4.6,
+              "reviewCount": 560,
+              "isTrending": false,
+              "prices": [],
+              "children": []
+            }
+          ]
+        },
+        {
+          "name": "Laptop Repair",
+          "slug": "gadget-repair-laptop-repair",
+          "level": 1,
+          "serviceIcon": null,
+          "bannerImage": null,
+          "initialPrice": 0,
+          "isTrending": false,
+          "children": [
+            {
+              "name": "Laptop Screen Repair",
+              "slug": "laptop-screen-repair",
+              "level": 2,
+              "serviceIcon": null,
+              "bannerImage": "https://lcst.sgp1.cdn.digitaloceanspaces.com/Onetap/web/service-banners/banner_electrical_checkup.png",
+              "initialPrice": 4500,
+              "priceUnit": "/laptop",
+              "rating": 4.8,
+              "reviewCount": 640,
+              "isTrending": false,
+              "prices": [],
+              "children": []
+            },
+            {
+              "name": "Keyboard Replacement",
+              "slug": "keyboard-replacement",
+              "level": 2,
+              "serviceIcon": null,
+              "bannerImage": "https://lcst.sgp1.cdn.digitaloceanspaces.com/Onetap/web/service-banners/banner_electrical_checkup.png",
+              "initialPrice": 2500,
+              "priceUnit": "/laptop",
+              "rating": 4.7,
+              "reviewCount": 420,
+              "isTrending": false,
+              "prices": [],
+              "children": []
+            },
+            {
+              "name": "Virus & OS Setup",
+              "slug": "virus-and-os-setup",
+              "level": 2,
+              "serviceIcon": null,
+              "bannerImage": "https://lcst.sgp1.cdn.digitaloceanspaces.com/Onetap/web/service-banners/banner_electrical_checkup.png",
+              "initialPrice": 1200,
+              "priceUnit": "/laptop",
+              "rating": 4.8,
+              "reviewCount": 530,
+              "isTrending": false,
+              "prices": [
+                {
+                  "name": "OS Installation",
+                  "price": 1200
+                },
+                {
+                  "name": "OS + Data Backup",
+                  "price": 1800
+                }
+              ],
+              "children": []
+            }
+          ]
+        },
+        {
+          "name": "Tablet & Camera",
+          "slug": "gadget-repair-tablet-and-camera",
+          "level": 1,
+          "serviceIcon": null,
+          "bannerImage": null,
+          "initialPrice": 0,
+          "isTrending": false,
+          "children": [
+            {
+              "name": "Tablet Screen Repair",
+              "slug": "tablet-screen-repair",
+              "level": 2,
+              "serviceIcon": null,
+              "bannerImage": "https://lcst.sgp1.cdn.digitaloceanspaces.com/Onetap/web/service-banners/banner_electrical_checkup.png",
+              "initialPrice": 3500,
+              "priceUnit": "/tablet",
+              "rating": 4.7,
+              "reviewCount": 310,
+              "isTrending": false,
+              "prices": [],
+              "children": []
+            },
+            {
+              "name": "Camera Sensor Cleaning",
+              "slug": "camera-sensor-cleaning",
+              "level": 2,
+              "serviceIcon": null,
+              "bannerImage": "https://lcst.sgp1.cdn.digitaloceanspaces.com/Onetap/web/service-banners/banner_electrical_checkup.png",
+              "initialPrice": 2000,
+              "priceUnit": "/camera",
+              "rating": 4.6,
+              "reviewCount": 220,
+              "isTrending": false,
+              "prices": [],
+              "children": []
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

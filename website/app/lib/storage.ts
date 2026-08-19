@@ -1,3 +1,16 @@
+import { resolveApiBase } from './api';
+
+/**
+ * Where the service should be delivered. Captured when the item is added so a
+ * later change to the header location does not silently move an existing
+ * booking, and carried through checkout to the order.
+ */
+export interface CartLocation {
+  address: string;
+  lat: number;
+  lng: number;
+}
+
 export interface CartItem {
   id: string;
   serviceTitle: string;
@@ -8,6 +21,12 @@ export interface CartItem {
   date: string;
   time: string;
   qty: number;
+  /** Backend service id — set when the item came from the API catalogue. */
+  serviceId?: number;
+  /** Backend service-price id for the chosen package (0 = base price). */
+  priceId?: number;
+  /** Location selected when this item was added to the cart. */
+  location?: CartLocation;
 }
 
 export interface Booking {
@@ -15,10 +34,9 @@ export interface Booking {
   items: CartItem[];
   total: number;
   payment: 'online' | 'cod';
-  paymentStatus?: string;
-  deliveryStatus?: string;
-  trackingCode?: string;
   createdAt: string;
+  /** Tracking codes returned by the API for the orders this booking created. */
+  trackingCodes?: string[];
 }
 
 const CART_KEY = 'onetap.cart.v1';
@@ -49,18 +67,42 @@ function write(key: string, value: unknown): void {
   }
 }
 
+interface CartRecord {
+  /** API the items' serviceId/priceId belong to. */
+  apiBase: string;
+  items: CartItem[];
+}
+
+/**
+ * Cart lines carry backend ids, and those ids only mean something against the
+ * API they came from — point the site at a different backend (or reseed one)
+ * and they silently refer to the wrong service, or to nothing at all. So the
+ * cart is stamped with its origin and dropped when that changes.
+ */
 export function loadCart(): CartItem[] {
-  const data = read<unknown>(CART_KEY);
-  return Array.isArray(data) ? (data as CartItem[]) : [];
+  const record = read<CartRecord | CartItem[]>(CART_KEY);
+  if (!record) return [];
+
+  // Legacy shape: a bare array with no origin. Its ids can't be trusted.
+  if (Array.isArray(record)) {
+    saveCart([]);
+    return [];
+  }
+
+  if (record.apiBase !== resolveApiBase()) {
+    saveCart([]);
+    return [];
+  }
+
+  return record.items ?? [];
 }
 
 export function saveCart(items: CartItem[]): void {
-  write(CART_KEY, Array.isArray(items) ? items : []);
+  write(CART_KEY, { apiBase: resolveApiBase(), items } satisfies CartRecord);
 }
 
 export function loadBookings(): Booking[] {
-  const data = read<unknown>(BOOKINGS_KEY);
-  return Array.isArray(data) ? (data as Booking[]) : [];
+  return read<Booking[]>(BOOKINGS_KEY) ?? [];
 }
 
 export function saveBookings(bookings: Booking[]): void {

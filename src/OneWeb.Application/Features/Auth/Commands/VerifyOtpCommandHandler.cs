@@ -1,5 +1,7 @@
 using MediatR;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Options;
+using OneWeb.Domain.Auth;
 using OneWeb.Domain.Entities;
 using OneWeb.Domain.Interfaces;
 using OneWeb.Infrastructure.Persistence;
@@ -13,17 +15,20 @@ public class VerifyOtpCommandHandler : IRequestHandler<VerifyOtpCommand, AuthRes
     private readonly AppDbContext _dbContext;
     private readonly ITokenService _tokenService;
     private readonly RefreshTokenService _refreshTokenService;
-    
+    private readonly MasterAuthOptions _master;
+
     public VerifyOtpCommandHandler(
         IOtpService otpService,
         AppDbContext dbContext,
         ITokenService tokenService,
-        RefreshTokenService refreshTokenService)
+        RefreshTokenService refreshTokenService,
+        IOptions<MasterAuthOptions> master)
     {
         _otpService = otpService;
         _dbContext = dbContext;
         _tokenService = tokenService;
         _refreshTokenService = refreshTokenService;
+        _master = master.Value;
     }
     
     public async Task<AuthResult> Handle(VerifyOtpCommand request, CancellationToken cancellationToken)
@@ -33,38 +38,18 @@ public class VerifyOtpCommandHandler : IRequestHandler<VerifyOtpCommand, AuthRes
         if (!isValid)
             return new AuthResult(false, null, null, null, null, "Invalid or expired OTP");
         
-        // Clean and normalize phone number
-        var rawPhone = request.Phone?.Trim() ?? "";
-        var digits = new string(rawPhone.Where(char.IsDigit).ToArray());
-        var cleanPhone = digits;
-        if (digits.StartsWith("880") && digits.Length >= 13)
-        {
-            cleanPhone = "0" + digits.Substring(3);
-        }
-        else if (digits.Length == 10 && !digits.StartsWith("0"))
-        {
-            cleanPhone = "0" + digits;
-        }
-
-        var with88 = "+88" + cleanPhone;
-        var with88NoPlus = "88" + cleanPhone;
-        var last10 = cleanPhone.Length >= 10 ? cleanPhone.Substring(cleanPhone.Length - 10) : cleanPhone;
-
-        // Find user by phone (flexible matching)
-        var user = await _dbContext.Users.FirstOrDefaultAsync(
-            u => u.Phone == request.Phone ||
-                 u.Phone == cleanPhone ||
-                 u.Phone == with88 ||
-                 u.Phone == with88NoPlus ||
-                 (u.Phone != null && u.Phone.EndsWith(last10)),
-            cancellationToken);
+        // Find user by phone
+        var user = await _dbContext.Users.FirstOrDefaultAsync(u => u.Phone == request.Phone, cancellationToken);
       
         // If not found, create new user
         if (user == null)
         {
             user = new User
             {
-                Phone = cleanPhone,
+                Phone = request.Phone,
+                // The bootstrap master number comes pre-named so it can skip
+                // the "what's your name?" step on first login.
+                Name = _master.IsMasterPhone(request.Phone) ? _master.Name : null,
                 UserType = "customer",
                 Status = true,
                 IsApproved = true,
@@ -79,18 +64,9 @@ public class VerifyOtpCommandHandler : IRequestHandler<VerifyOtpCommand, AuthRes
         var accessToken = _tokenService.GenerateAccessToken(user.Id, user.UserType ?? "customer", user.Phone);
         var refreshToken = _tokenService.GenerateRefreshToken();
         
-        return new AuthResult(
-            true, 
-            accessToken, 
-            refreshToken, 
-            user.UserType, 
-            user.Id, 
-            "Login successful", 
-            requiredName,
-            user.Name,
-            user.Address,
-            user.Email,
-            user.Phone
-        );
+        // Save refresh token
+        await _refreshTokenService.SaveRefreshTokenAsync(user.Id, refreshToken);
+        
+        return new AuthResult(true, accessToken, refreshToken, user.UserType, user.Id, "Login successful", requiredName, user.Name, user.Phone);
     }
 }

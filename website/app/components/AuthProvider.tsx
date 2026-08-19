@@ -14,10 +14,9 @@ import {
   clearAuthUser,
   loadAuthUser,
   saveAuthUser,
-  DEMO_PHONE,
   type AuthUser,
 } from '@/app/lib/auth';
-import { loadUserProfile } from '@/app/lib/storage';
+import { loadTokens, logout as apiLogout } from '@/app/lib/api';
 
 export type AuthMode = 'account' | 'checkout' | 'schedule';
 
@@ -27,7 +26,8 @@ interface AuthContextValue {
   authOpen: boolean;
   openAuth: (mode?: AuthMode) => void;
   closeAuth: () => void;
-  login: (phone: string, name?: string) => void;
+  login: (user: AuthUser) => void;
+  setUserName: (name: string) => void;
   logout: () => void;
 }
 
@@ -48,9 +48,17 @@ export default function AuthProvider({ children }: { children: ReactNode }) {
   const [authLoaded, setAuthLoaded] = useState(false);
 
   // Restore the persisted session after mount (deferred to avoid SSR
-  // mismatches), mirroring the cart provider pattern.
+  // mismatches), mirroring the cart provider pattern. A stored profile with no
+  // matching API tokens is a leftover from an older build — drop it so the user
+  // logs in again and gets a real session.
   useEffect(() => {
-    setUser(loadAuthUser());
+    const stored = loadAuthUser();
+    if (stored && !loadTokens()) {
+      clearAuthUser();
+      setUser(null);
+    } else {
+      setUser(stored);
+    }
     setAuthLoaded(true);
   }, []);
 
@@ -60,31 +68,41 @@ export default function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
   const closeAuth = useCallback(() => setAuthOpen(false), []);
 
-  const login = useCallback((phone: string, name?: string) => {
-    const stored = loadUserProfile();
-    const nextUser: AuthUser = {
-      phone,
-      name: name || stored.name || (phone === DEMO_PHONE ? 'Demo User' : undefined),
-    };
+  // Called by the drawer once the API has verified the OTP and stored tokens.
+  const login = useCallback((nextUser: AuthUser) => {
     saveAuthUser(nextUser);
     setUser(nextUser);
   }, []);
 
+  const setUserName = useCallback((name: string) => {
+    setUser((prev) => {
+      if (!prev) return prev;
+      const next = { ...prev, name };
+      saveAuthUser(next);
+      return next;
+    });
+  }, []);
+
   const logout = useCallback(() => {
     clearAuthUser();
-    if (typeof window !== 'undefined') {
-      localStorage.removeItem('accessToken');
-      localStorage.removeItem('refreshToken');
-      localStorage.removeItem('userId');
-      localStorage.removeItem('onetap.bookings.v1');
-      localStorage.removeItem('onetap.profile.v1');
-    }
     setUser(null);
+    // Revokes the refresh tokens server-side and clears them locally either
+    // way; failure here is not user-visible.
+    void apiLogout();
   }, []);
 
   const value = useMemo<AuthContextValue>(
-    () => ({ user, authLoaded, authOpen, openAuth, closeAuth, login, logout }),
-    [user, authLoaded, authOpen, openAuth, closeAuth, login, logout],
+    () => ({
+      user,
+      authLoaded,
+      authOpen,
+      openAuth,
+      closeAuth,
+      login,
+      setUserName,
+      logout,
+    }),
+    [user, authLoaded, authOpen, openAuth, closeAuth, login, setUserName, logout],
   );
 
   return (

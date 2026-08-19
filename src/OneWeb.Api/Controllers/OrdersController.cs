@@ -2,10 +2,8 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using MediatR;
 using System.Security.Claims;
-using Microsoft.EntityFrameworkCore;
 using OneWeb.Application.Features.Orders.Commands;
 using OneWeb.Application.Features.Orders.Queries;
-using OneWeb.Infrastructure.Persistence;
 
 namespace OneWeb.Api.Controllers;
 
@@ -15,47 +13,17 @@ namespace OneWeb.Api.Controllers;
 public class OrdersController : ControllerBase
 {
     private readonly IMediator _mediator;
-    private readonly AppDbContext _dbContext;
 
-    public OrdersController(IMediator mediator, AppDbContext dbContext)
+    public OrdersController(IMediator mediator)
     {
         _mediator = mediator;
-        _dbContext = dbContext;
     }
 
-    private long GetUserId()
-    {
-        var val = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value
-            ?? User.FindFirst("id")?.Value
-            ?? User.FindFirst("sub")?.Value
-            ?? User.FindFirst("nameid")?.Value
-            ?? User.FindFirst("userId")?.Value
-            ?? User.FindFirst(ClaimTypes.Name)?.Value;
-
-        if (long.TryParse(val, out var id) && id > 0)
-        {
-            return id;
-        }
-
-        var phone = User.FindFirst(ClaimTypes.MobilePhone)?.Value ?? User.FindFirst("phone")?.Value;
-        if (!string.IsNullOrEmpty(phone))
-        {
-            var u = _dbContext.Users.FirstOrDefault(x => x.Phone == phone);
-            if (u != null) return u.Id;
-        }
-
-        var email = User.FindFirst(ClaimTypes.Email)?.Value ?? User.FindFirst("email")?.Value;
-        if (!string.IsNullOrEmpty(email))
-        {
-            var u = _dbContext.Users.FirstOrDefault(x => x.Email == email);
-            if (u != null) return u.Id;
-        }
-
-        return 0;
-    }
+    private long GetUserId() =>
+        long.Parse(User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value!);
 
     private string GetUserRole() =>
-        User.FindFirst(System.Security.Claims.ClaimTypes.Role)?.Value ?? "customer";
+        User.FindFirst(System.Security.Claims.ClaimTypes.Role)?.Value!;
 
     [HttpGet()]
     public async Task<IActionResult> GetOrders(
@@ -69,58 +37,25 @@ public class OrdersController : ControllerBase
     }
 
     [HttpPost()]
-    [AllowAnonymous]
+    [Authorize(Roles = "customer")]
     public async Task<IActionResult> CreateOrder([FromBody] CreateOrderRequest request)
     {
         var userId = GetUserId();
-        if (userId <= 0)
-        {
-            var customer = await _dbContext.Users.FirstOrDefaultAsync(u => u.UserType == "customer" && u.Status);
-            userId = customer?.Id ?? 1;
-        }
-
-        DateOnly serviceDate = DateOnly.FromDateTime(DateTime.UtcNow);
-        if (!string.IsNullOrEmpty(request.ServiceDate))
-        {
-            var dateStr = request.ServiceDate.Contains('T') ? request.ServiceDate.Split('T')[0] : request.ServiceDate;
-            if (DateOnly.TryParse(dateStr, out var parsedDate))
-            {
-                serviceDate = parsedDate;
-            }
-            else if (DateTime.TryParse(request.ServiceDate, out var dt))
-            {
-                serviceDate = DateOnly.FromDateTime(dt);
-            }
-        }
-
-        TimeSpan? serviceTime = null;
-        if (!string.IsNullOrEmpty(request.Time))
-        {
-            var timePart = request.Time.Contains('-') ? request.Time.Split('-')[0].Trim() : request.Time.Trim();
-            if (TimeSpan.TryParse(timePart, out var parsedTime))
-            {
-                serviceTime = parsedTime;
-            }
-            else if (DateTime.TryParse(timePart, out var dt))
-            {
-                serviceTime = dt.TimeOfDay;
-            }
-        }
-
         var command = new CreateOrderCommand()
         {
             UserId = userId,
             PriceId = request.PriceId,
-            ServiceDate = serviceDate,
-            Time = serviceTime,
+            ServiceDate = request.ServiceDate,
+            Time = request.Time,
             ServiceId = request.ServiceId,
-            ShippingAddress = request.ShippingAddress ?? "Dhaka, Bangladesh",
+            ShippingAddress = request.ShippingAddress,
             AdditionalInfo = request.AdditionalInfo,
-            PaymentType = request.PaymentType ?? "sslcommerz",
+            PaymentType = request.PaymentType,
             CouponCode = request.CouponCode,
             Latitude = request.Latitude,
             Longitude = request.Longitude,
-            OrderFrom = request.OrderFrom ?? "web"
+            LocationName = request.LocationName,
+            OrderFrom = request.OrderFrom
         };
 
         var result = await _mediator.Send(command);
@@ -161,18 +96,21 @@ public class OrdersController : ControllerBase
         return Ok(new { message = "Order cancelled" });
     }
 
+
     // DTOs for requests
     public record CreateOrderRequest(
-        long ServiceId,
-        long PriceId,
-        string? ServiceDate,
-        string? Time,
-        string? ShippingAddress,
+        int ServiceId,
+        int PriceId,
+        DateOnly ServiceDate,
+        TimeSpan Time,
+        string ShippingAddress,
         string? AdditionalInfo,
         string? PaymentType,
         string? CouponCode,
         string? Latitude,
         string? Longitude,
-        string? OrderFrom
+        string? LocationName,
+        string OrderFrom = "web"
     );
+
 }

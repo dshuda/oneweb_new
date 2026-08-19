@@ -9,9 +9,12 @@ public record VendorDto(
     double PendingBalance, 
     double CommissionRate,
     double TotalEarnings,
-    string? Address, 
-    bool Status, 
-    DateTime? CreatedAt
+    string? Address,
+    bool Status,
+    DateTime? CreatedAt,
+    // The admin edit form round-trips this list; omitting it would make a save
+    // look like "assign no services" and clear the vendor's existing links.
+    List<long>? ServiceIds = null
 );
 
 public record VendorEarningsDto(

@@ -11,6 +11,10 @@ public class OrderConfiguration : IEntityTypeConfiguration<Order>
         builder.ToTable("orders");
         builder.HasKey(x => x.Id);
 
+        // PostGIS point in WGS84; spatially indexed so "orders near X" is cheap.
+        builder.Property(x => x.Location).HasColumnType("geometry(Point,4326)");
+        builder.HasIndex(x => x.Location).HasMethod("gist");
+
 
         builder.Property(p => p.ServiceDate);
 

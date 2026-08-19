@@ -18,8 +18,10 @@ public class GetServicesQueryHandler : IRequestHandler<GetServicesQuery, PagedRe
     
     public async Task<PagedResult<ServiceDto>> Handle(GetServicesQuery request, CancellationToken cancellationToken)
     {
-        // Query services where Level=2 AND Status=true
+        // Query services where Level=2 AND Status=true. Prices come along so the
+        // storefront can render bookable packages without a call per card.
         var query = _dbContext.Services
+            .Include(s => s.Prices)
             .Where(s => s.Level == 2 && s.Status);
 
         // If Search: filter by Name.Contains(search)
@@ -69,7 +71,14 @@ public class GetServicesQueryHandler : IRequestHandler<GetServicesQuery, PagedRe
         // Map to ServiceDto (without children for list)
         var items = services.Select(s => new ServiceDto(
             s.Id, s.Name, s.Slug, s.ParentId, s.Level,
-            s.ServiceIcon, s.BannerImage, s.InitialPrice, s.IsTrending, s.Status
+            s.ServiceIcon, s.BannerImage, s.InitialPrice, s.IsTrending, s.Status,
+            null,
+            s.PriceUnit, s.Rating, s.ReviewCount, s.HeroTitle, s.HeroSubtitle,
+            s.Prices?
+                .Where(p => p.Status)
+                .OrderBy(p => p.Price)
+                .Select(p => new ServicePriceDto(p.Id, p.Name, p.Price))
+                .ToList()
         )).ToList();
         
         return new PagedResult<ServiceDto>(

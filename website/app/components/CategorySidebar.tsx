@@ -1,12 +1,19 @@
 "use client";
 
-import Image from "next/image";
 import Link from "next/link";
 import { FiGrid } from "react-icons/fi";
-import { serviceCategories } from "@/app/data/services";
+import CategoryIcon from "./CategoryIcon";
+
+export interface SidebarCategory {
+  slug: string;
+  name: string;
+  icon?: string | null;
+}
 
 interface CategorySidebarProps {
   activeSlug: string;
+  /** Supplied by the caller, which loads them from the API. */
+  categories: SidebarCategory[];
   onNavigate: (slug: string) => void;
 }
 
@@ -18,16 +25,17 @@ interface CategorySidebarProps {
  */
 export default function CategorySidebar({
   activeSlug,
+  categories,
   onNavigate,
 }: CategorySidebarProps) {
   return (
     <aside className="-mx-4 px-4 lg:mx-0 lg:px-0">
       <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide lg:sticky lg:top-24 lg:flex-col lg:gap-1 lg:overflow-visible lg:rounded-2xl lg:border lg:border-border/70 lg:bg-white lg:p-2 lg:pb-2.5 lg:shadow-sm">
-        {serviceCategories.map((category) => {
+        {categories.map((category) => {
           const isActive = category.slug === activeSlug;
           return (
             <Link
-              key={category.id}
+              key={category.slug}
               href={`/category/${category.slug}`}
               onClick={(e) => {
                 // Let Cmd/Ctrl/Shift/middle clicks behave normally (new tab).
@@ -58,28 +66,15 @@ export default function CategorySidebar({
                     : "border-border bg-background text-foreground group-hover:border-primary/25 group-hover:bg-primary/5 group-hover:text-primary"
                 }`}
               >
-                {typeof category.icon === "string" ? (
-                  <Image
-                    src={category.icon}
-                    alt={category.name}
-                    width={24}
-                    height={24}
-                    className="h-5 w-5"
-                  />
-                ) : (
-                  <category.icon size={20} strokeWidth={2} />
-                )}
+                <CategoryIcon
+                  icon={category.icon}
+                  name={category.name}
+                  size={20}
+                  className="h-5 w-5"
+                />
               </span>
               <span className="text-left text-[13px] leading-snug font-semibold whitespace-nowrap text-foreground">
                 {category.name}
-                <br />
-                <span
-                  className={
-                    isActive ? "text-primary" : "text-muted-foreground"
-                  }
-                >
-                  {category.sub}
-                </span>
               </span>
             </Link>
           );

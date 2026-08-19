@@ -1,17 +1,13 @@
-'use client';
-
-import dynamic from "next/dynamic";
+import type { Metadata } from "next";
 import Header from "../components/Header";
 import Footer from "../components/Footer";
+import Profile from "./Profile";
 
-const Profile = dynamic(() => import("./Profile"), {
-  ssr: false,
-  loading: () => (
-    <div className="mx-auto flex min-h-[500px] max-w-4xl items-center justify-center px-4 pb-20 pt-32 sm:px-6 lg:pt-36">
-      <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
-    </div>
-  ),
-});
+export const metadata: Metadata = {
+  title: "My Profile - One Tap Service",
+  description:
+    "View your One Tap profile, phone number, and booking summary.",
+};
 
 export default function ProfilePage() {
   return (

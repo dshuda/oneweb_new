@@ -8,14 +8,17 @@ import { useEffect, useState } from "react";
 import { FiMenu, FiX } from "react-icons/fi";
 import { useCart } from "./CartProvider";
 import { useAuth } from "./AuthProvider";
+import { asset } from '@/app/lib/assets';
 
 const navItems = [
   { label: "Home", href: "/" },
   { label: "Services", href: "/services" },
+  { label: "Blog", href: "/blog" },
   { label: "About", href: "/about" },
   { label: "Contact Us", href: "/contact-us" },
-  { label: "FAQ", href: "/faq" },
 ];
+
+const normalize = (p: string) => p.replace(/\/$/, "") || "/";
 
 export default function Header() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
@@ -45,8 +48,6 @@ export default function Header() {
       window.history.replaceState({}, "", window.location.pathname);
     }
   }, [authLoaded, user, openAuth]);
-
-  const normalize = (p: string) => p.replace(/\/$/, "") || "/";
   const isActive = (href: string) => normalize(pathname) === normalize(href);
 
   return (
@@ -63,7 +64,7 @@ export default function Header() {
           {/* Logo */}
           <Link href="/" className="flex items-center gap-2.5">
             <Image
-              src="/logo_onetap.svg"
+              src={asset('/logo_onetap.svg')}
               alt=""
               width={69}
               height={40}
@@ -99,7 +100,7 @@ export default function Header() {
               className="relative rounded-full hover:bg-primary/10 hover:text-primary"
             >
               <Image
-                src="/icons/cart.svg"
+                src={asset('/icons/cart.svg')}
                 alt=""
                 width={20}
                 height={20}
@@ -129,7 +130,7 @@ export default function Header() {
               }`}
             >
               <Image
-                src="/icons/circle-user.svg"
+                src={asset('/icons/circle-user.svg')}
                 alt=""
                 width={24}
                 height={24}

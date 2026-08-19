@@ -8,8 +8,11 @@ namespace OneWeb.Application.Features.Vendors.Commands;
 public record RegisterVendorCommand : IRequest<long>
 {
     public long UserId { get; set; }
+    public string? UserName { get; set; }
+    public string? Name { get; set; }
     public long[]? ServiceIds { get; set; }
     public string? Phone { get; set; }
+    public string? Email { get; set; }
     public string? BankName { get; set; }
     public double CommissionRate { get; set; } = 0;
     public string? BankAccountName { get; set; }
@@ -21,6 +24,7 @@ public record RegisterVendorCommand : IRequest<long>
     public string? ShortBiography { get; set; }
     public string? Nid { get; set; }
     public string? TradeLicense { get; set; }
+    public bool Status { get; set; } = true;
 }
 public class RegisterVendorCommandHandler : IRequestHandler<RegisterVendorCommand, long>
 {
@@ -33,55 +37,85 @@ public class RegisterVendorCommandHandler : IRequestHandler<RegisterVendorComman
 
     public async Task<long> Handle(RegisterVendorCommand request, CancellationToken cancellationToken)
     {
-        var user = await _dbContext.Users.FirstOrDefaultAsync(u => u.Phone == request.Phone, cancellationToken);
+        var cleanPhone = request.Phone?.Trim() ?? string.Empty;
+        var vendorName = !string.IsNullOrWhiteSpace(request.UserName)
+            ? request.UserName.Trim()
+            : (!string.IsNullOrWhiteSpace(request.Name) ? request.Name.Trim() : "Vendor");
+
+        var user = await _dbContext.Users.FirstOrDefaultAsync(u => u.Phone == cleanPhone, cancellationToken);
         if (user == null)
         {
-            throw new Exception($"User Not Found with {request.Phone}");
+            user = new User
+            {
+                Phone = cleanPhone,
+                Name = vendorName,
+                Email = !string.IsNullOrWhiteSpace(request.Email) ? request.Email : $"{cleanPhone}@vendor.oneweb.com",
+                UserType = "vendor",
+                Status = true,
+                CreatedAt = DateTime.UtcNow,
+                UpdatedAt = DateTime.UtcNow
+            };
+            _dbContext.Users.Add(user);
+            await _dbContext.SaveChangesAsync(cancellationToken);
         }
-        if (user.UserType == "vendor")
+        else
         {
-            throw new Exception($"{request.Phone} already registred as vendor");
+            user.Name = vendorName;
+            user.UserType = "vendor";
+            user.UpdatedAt = DateTime.UtcNow;
         }
 
-        // Create Vendor
-        var vendor = new Vendor
+        // Check if vendor record already exists for this user
+        var vendor = await _dbContext.Vendors
+            .Include(f => f.VendorServices)
+            .FirstOrDefaultAsync(v => v.UserId == user.Id, cancellationToken);
+
+        if (vendor == null)
         {
-            UserId = user.Id,
-            BankName = request.BankName,
-            BankAccountName = request.BankAccountName,
-            BankAccountNumber = request.BankAccountNumber,
-            BankRoutingNumber = request.BankRoutingNumber,
-            Division = request.Division,
-            CommissionRate = request.CommissionRate,
-            District = request.District,
-            Address = request.Address,
-            ShortBiography = request.ShortBiography,
-            Nid = request.Nid,
-            TradeLicense = request.TradeLicense,
-            Status = true,
-            CreatedAt = DateTime.UtcNow,
-            UpdatedAt = DateTime.UtcNow
-        };
+            vendor = new Vendor
+            {
+                UserId = user.Id,
+                BankName = request.BankName,
+                BankAccountName = request.BankAccountName,
+                BankAccountNumber = request.BankAccountNumber,
+                BankRoutingNumber = request.BankRoutingNumber,
+                Division = request.Division,
+                CommissionRate = request.CommissionRate,
+                District = request.District,
+                Address = request.Address,
+                ShortBiography = request.ShortBiography,
+                Nid = request.Nid,
+                TradeLicense = request.TradeLicense,
+                Status = request.Status,
+                CreatedAt = DateTime.UtcNow,
+                UpdatedAt = DateTime.UtcNow
+            };
+            _dbContext.Vendors.Add(vendor);
+        }
+        else
+        {
+            vendor.CommissionRate = request.CommissionRate;
+            vendor.Status = request.Status;
+            vendor.Address = request.Address ?? vendor.Address;
+            vendor.UpdatedAt = DateTime.UtcNow;
+        }
 
-        _dbContext.Vendors.Add(vendor);
-
-        // T3.1 — Process Service IDs into junction table entries
+        // Process Service IDs
         if (request.ServiceIds != null)
         {
+            var currentServices = _dbContext.VendorServices.Where(vs => vs.VendorId == vendor.Id);
+            _dbContext.VendorServices.RemoveRange(currentServices);
 
-            foreach (var sIdStr in request.ServiceIds)
+            foreach (var sId in request.ServiceIds)
             {
                 _dbContext.VendorServices.Add(new VendorService
                 {
                     Vendor = vendor,
-                    ServiceId = sIdStr,
+                    ServiceId = sId,
                     CreatedAt = DateTime.UtcNow
                 });
             }
         }
-
-        user.UserType = "vendor";
-        user.UpdatedAt = DateTime.UtcNow;
 
         await _dbContext.SaveChangesAsync(cancellationToken);
         return vendor.Id;

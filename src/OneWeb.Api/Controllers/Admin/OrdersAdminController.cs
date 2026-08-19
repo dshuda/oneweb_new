@@ -77,18 +77,23 @@ public class OrdersAdminController : ControllerBase
     }
 
     [HttpPut("{id}")]
+
     public async Task<IActionResult> UpdateOrder(long id, [FromBody] UpdateOrderCommand request)
     {
-        request.Id = id;
+        if (!ModelState.IsValid)
+        {
+            var errors = ModelState.Values.Select(f => f.Errors.SelectMany(s => s.ErrorMessage)).ToArray();
+            return BadRequest(errors);
+        }
+        var userId = GetUserId();
         var role = GetUserRole();
-        request.UpdatedByRole = !string.IsNullOrWhiteSpace(role) ? role : "admin";
-        
+        request.UpdatedByRole = role;
         var result = await _mediator.Send(request);
 
         if (!result)
-            return BadRequest(new { message = "Could not update order." });
+            return BadRequest(new { message = "Invalid status transition" });
 
-        return ApiResponseFactory.Ok(new { message = "Order updated successfully." }, HttpContext);
+        return ApiResponseFactory.Accepted(result, HttpContext);
     }
 
     public record UpdateStatusRequest(string NewStatus);

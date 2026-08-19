@@ -21,8 +21,8 @@ public class SlidersController : ControllerBase
     {
         var sliders = await _dbContext.Sliders
             .Where(s => s.Status)
-            .OrderBy(s => s.Id)
-            .Select(s => new SliderDto(s.Id, s.Title, s.PhotoId, s.Link))
+            .OrderBy(s => s.Position).ThenBy(s => s.Id)
+            .Select(s => new SliderDto(s.Id, s.Title, s.SubTitle, s.Image, s.Link, s.Position))
             .ToListAsync();
 
         return Ok(sliders);
@@ -30,5 +30,5 @@ public class SlidersController : ControllerBase
 
    
 
-    public record SliderDto(long Id, string? Title, int? PhotoId, string? Link);
+    public record SliderDto(long Id, string? Title, string? SubTitle, string? Image, string? Link, int Position);
 }

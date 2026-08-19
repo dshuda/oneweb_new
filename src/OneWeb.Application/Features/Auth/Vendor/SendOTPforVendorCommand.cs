@@ -1,4 +1,4 @@
-using MediatR;
+﻿using MediatR;
 using Microsoft.EntityFrameworkCore;
 using OneWeb.Domain.Interfaces;
 using OneWeb.Infrastructure.Bulk;
@@ -32,7 +32,8 @@ internal class SendOTPforVendorCommandHandler : IRequestHandler<SendOTPforVendor
         if(await _context.Vendors.AnyAsync(f=>f.User.Phone == request.Mobile, cancellationToken))
         {
           var otp =  await _otpService.GenerateAndSaveOtpAsync(request.Mobile);
-          await _smsServices.SendAsync("88" + request.Mobile, $"Your OneTap OTP is {otp}");
+            // just blocking to get manullay need uncomment below line in product
+         ///   await _smsServices.SendAsync(request.Mobile, $"Your login OTP is {otp} as a vendor, don't share to other");
         }
 
         return new SendVendorOtpResult(true, "OTP Sent to vendor Mobile number");

@@ -57,16 +57,6 @@ public class GetAdminOrdersQueryHandler : IRequestHandler<GetAdminOrdersQuery, P
             .ToListAsync(cancellationToken);
 
         // Map to DTOs
-        var vendorIds = orders.Where(o => o.VendorId.HasValue).Select(o => o.VendorId!.Value).Distinct().ToList();
-        var vendorMap = await _dbContext.Vendors
-            .Include(v => v.User)
-            .Where(v => vendorIds.Contains(v.Id))
-            .ToDictionaryAsync(v => v.Id, v => new
-            {
-                Name = v.User != null ? v.User.Name : "Vendor",
-                Phone = v.User != null ? v.User.Phone : ""
-            }, cancellationToken);
-
         var items = orders.Select(o => new OrderAdminDto()
         {
             Id = o.Id,
@@ -80,11 +70,8 @@ public class GetAdminOrdersQueryHandler : IRequestHandler<GetAdminOrdersQuery, P
             AdditionalInfo = o.AdditionalInfo,
             CreatedAt = o.CreatedAt,
             VendorId = o.VendorId,
-            Vendor = o.VendorId.HasValue && vendorMap.TryGetValue(o.VendorId.Value, out var vInfo) ? vInfo.Name : null,
-            VendorContact = o.VendorId.HasValue && vendorMap.TryGetValue(o.VendorId.Value, out var vInfo2) ? vInfo2.Phone : null,
-            Customer = !string.IsNullOrWhiteSpace(o.User?.Name)
-                ? (!string.IsNullOrWhiteSpace(o.User?.Phone) ? $"{o.User.Name} ({o.User.Phone})" : o.User.Name)
-                : (!string.IsNullOrWhiteSpace(o.User?.Phone) ? o.User.Phone : (o.ShippingAddress ?? "Customer")),
+            PriceId = o.PriceId,
+            Customer = o.User != null ? o.User.Name + " -" + o.User.Phone : null,
             Service = o.Service != null ? new ServiceSummaryDto(o.Service.Id, o.Service.Name, o.Service.Slug) : null,
             OrderFrom = o.OrderFrom ?? null,
             Pricing = o.Service?.Prices.Select(f => new PricingDto() { Id = f.Id, Name = f.Name, Price = f.Price, Selected = f.Id == o.PriceId }).ToList(),

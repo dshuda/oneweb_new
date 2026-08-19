@@ -27,26 +27,48 @@ public class Startup
         // Add controllers
         services.AddControllers();
 
+        // Overlays per-locale service copy onto responses (see TranslationOverlay).
+        services.AddScoped<OneWeb.Api.Localization.TranslationOverlay>();
+
         // Add SignalR
         services.AddSignalR();
 
-        // Add CORS
+        // Add CORS — restricted to the storefront origins. AllowAnyOrigin lets
+        // any site on the internet call the API with a user's credentials.
+        // Origins come from Cors:AllowedOrigins, falling back to the payment
+        // return allow-list and FrontendUrl so there is one place to configure.
+        var corsOrigins = _configuration.GetSection("Cors:AllowedOrigins").Get<string[]>()
+            ?? _configuration.GetSection("SslCommerz:AllowedReturnOrigins").Get<string[]>()
+            ?? Array.Empty<string>();
+
+        var frontendUrl = _configuration["FrontendUrl"];
+        if (!string.IsNullOrWhiteSpace(frontendUrl))
+            corsOrigins = corsOrigins.Append(frontendUrl).ToArray();
+
+        corsOrigins = corsOrigins
+            .Where(o => !string.IsNullOrWhiteSpace(o))
+            .Select(o => o.TrimEnd('/'))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+
         services.AddCors(options =>
         {
             options.AddPolicy("AllowAll", policy =>
             {
-                policy.AllowAnyOrigin()
-                      .AllowAnyMethod()
-                      .AllowAnyHeader();
+                if (corsOrigins.Length == 0)
+                {
+                    // Nothing configured (local dev): stay permissive rather than
+                    // break the site, but credentials still cannot be sent.
+                    policy.AllowAnyOrigin().AllowAnyMethod().AllowAnyHeader();
+                }
+                else
+                {
+                    policy.WithOrigins(corsOrigins)
+                          .AllowAnyMethod()
+                          .AllowAnyHeader()
+                          .AllowCredentials();
+                }
             });
-        });
-
-        // Increase multipart upload size limits (100MB)
-        services.Configure<Microsoft.AspNetCore.Http.Features.FormOptions>(options =>
-        {
-            options.ValueLengthLimit = int.MaxValue;
-            options.MultipartBodyLengthLimit = 104857600; // 100MB
-            options.MultipartHeadersLengthLimit = int.MaxValue;
         });
 
         // Add Endpoints API explorer
@@ -74,7 +96,18 @@ public class Startup
 
         // Add JWT Authentication
         var jwtSettings = _configuration.GetSection("Jwt");
-        var key = Encoding.UTF8.GetBytes(jwtSettings["SecretKey"]!);
+        var secretKey = jwtSettings["SecretKey"];
+
+        // Refuse to start on a missing or trivially short signing key. Shipping a
+        // default key lets anyone who has seen the repo forge admin tokens.
+        if (string.IsNullOrWhiteSpace(secretKey) || secretKey.Length < 32)
+        {
+            throw new InvalidOperationException(
+                "Jwt:SecretKey is missing or shorter than 32 characters. " +
+                "Set Jwt__SecretKey in the environment (see .env.prod).");
+        }
+
+        var key = Encoding.UTF8.GetBytes(secretKey);
 
         services.AddAuthentication(options =>
         {

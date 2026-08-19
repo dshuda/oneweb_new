@@ -3,9 +3,11 @@
 import Image from "next/image";
 import Link from "next/link";
 import { FiFacebook, FiInstagram, FiLinkedin, FiTwitter } from "react-icons/fi";
+import { asset } from '@/app/lib/assets';
 
 const companyLinks = [
   { label: "About Us", href: "/about" },
+  { label: "Blog & Insights", href: "/blog" },
   { label: "Careers", href: "#" },
   { label: "Partner with Us", href: "#" },
 ];
@@ -33,7 +35,7 @@ export default function Footer() {
           <div>
             <div className="mb-4">
               <Image
-                src="/logo_onetap.svg"
+                src={asset('/logo_onetap.svg')}
                 alt="One Tap Service"
                 width={69}
                 height={40}
@@ -43,9 +45,6 @@ export default function Footer() {
             <p className="text-sm leading-relaxed text-muted-foreground">
               Connecting you with the best service providers for your home and
               lifestyle needs. Quality assured.
-            </p>
-            <p className="mt-3 text-xs leading-relaxed text-muted-foreground">
-              <span className="font-semibold text-foreground">Address:</span> 66 Kalabagan, Dhanmondi, Dhaka
             </p>
           </div>
 

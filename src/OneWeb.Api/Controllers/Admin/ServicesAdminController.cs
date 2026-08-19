@@ -2,11 +2,9 @@ using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
 using OneWeb.Api.DTOs;
 using OneWeb.Application.Features.Services.Commands;
 using OneWeb.Application.Features.Services.Queries;
-using OneWeb.Infrastructure.Persistence;
 
 namespace OneWeb.Api.Controllers.Admin;
 
@@ -36,23 +34,24 @@ public class ServicesAdminController : ControllerBase
     }
 
     [HttpPut("{id}")]
-    [HttpPost("{id}")]
-    [HttpPatch("{id}")]
     public async Task<IActionResult> UpdateService(long id, [FromBody] UpdateServiceRequest request)
     {
         var result = await _mediator.Send(new UpdateServiceCommand
         {
             Id = id,
-            Name = request.Name ?? string.Empty,
+            Name = request.Name,
             Slug = request.Slug,
-            ServiceIcon = request.ServiceIcon,
+            ParentId = request.ParentId,
             BannerImage = request.BannerImage,
+            ServiceIcon = request.ServiceIcon,
+            PriceUnit = request.PriceUnit,
+            Rating = request.Rating,
+            ReviewCount = request.ReviewCount,
             HeroTitle = request.HeroTitle,
             HeroSubtitle = request.HeroSubtitle,
-            ParentId = request.ParentId,
-            Level = request.Level ?? 1,
-            InitialPrice = request.InitialPrice ?? 0,
-            Status = request.Status ?? true
+            Level = request.Level,
+            InitialPrice = request.InitialPrice,
+            Status = request.Status
         });
 
         if (!result)
@@ -67,16 +66,20 @@ public class ServicesAdminController : ControllerBase
         {
             Name = request.Name,
             Slug = request.Slug,
-            ServiceIcon = request.ServiceIcon,
+            ParentId = request.ParentId,
             BannerImage = request.BannerImage,
+            ServiceIcon = request.ServiceIcon,
+            PriceUnit = request.PriceUnit,
+            Rating = request.Rating,
+            ReviewCount = request.ReviewCount,
             HeroTitle = request.HeroTitle,
             HeroSubtitle = request.HeroSubtitle,
-            ParentId = request.ParentId,
             Level = request.Level,
             InitialPrice = request.InitialPrice,
             Status = request.Status
         });
         return ApiResponseFactory.Created(result, HttpContext, "");
+        // return CreatedAtAction(nameof(UpdateService), new { id = result }, new { id = result, message = "Service created successfully" });
     }
 
 
@@ -177,107 +180,35 @@ public class ServicesAdminController : ControllerBase
         public bool Status { get; set; }
     }
 
-    [HttpGet("{serviceId}/schedules")]
-    public async Task<IActionResult> GetSchedules(long serviceId, [FromServices] AppDbContext dbContext)
-    {
-        var schedules = await dbContext.ServiceSchedules
-            .Where(s => s.ServiceId == serviceId)
-            .OrderBy(s => s.Id)
-            .Select(s => new
-            {
-                id = s.Id,
-                serviceId = s.ServiceId,
-                day = s.Day,
-                startTime = s.StartTime,
-                endTime = s.EndTime,
-                status = s.Status
-            })
-            .ToListAsync();
-
-        return ApiResponseFactory.Ok(schedules, HttpContext);
-    }
-
-    [HttpPost("{serviceId}/schedules")]
-    public async Task<IActionResult> CreateSchedule(long serviceId, [FromBody] ServiceScheduleRequest request, [FromServices] AppDbContext dbContext)
-    {
-        var schedule = new OneWeb.Domain.Entities.ServiceSchedule
-        {
-            ServiceId = serviceId,
-            Day = request.Day,
-            StartTime = request.StartTime,
-            EndTime = request.EndTime,
-            Status = request.Status,
-            CreatedAt = DateTime.UtcNow
-        };
-
-        dbContext.ServiceSchedules.Add(schedule);
-        await dbContext.SaveChangesAsync();
-
-        return ApiResponseFactory.Ok(new { id = schedule.Id, message = "Slot added." }, HttpContext);
-    }
-
-    [HttpPut("schedules/{id}")]
-    public async Task<IActionResult> UpdateSchedule(long id, [FromBody] ServiceScheduleRequest request, [FromServices] AppDbContext dbContext)
-    {
-        var schedule = await dbContext.ServiceSchedules.FindAsync(id);
-        if (schedule == null)
-            return NotFound();
-
-        schedule.Day = request.Day;
-        schedule.StartTime = request.StartTime;
-        schedule.EndTime = request.EndTime;
-        schedule.Status = request.Status;
-        schedule.UpdatedAt = DateTime.UtcNow;
-
-        await dbContext.SaveChangesAsync();
-
-        return ApiResponseFactory.Ok(new { id = schedule.Id, message = "Slot updated." }, HttpContext);
-    }
-
-    [HttpDelete("schedules/{id}")]
-    public async Task<IActionResult> DeleteSchedule(long id, [FromServices] AppDbContext dbContext)
-    {
-        var schedule = await dbContext.ServiceSchedules.FindAsync(id);
-        if (schedule == null)
-            return NotFound();
-
-        dbContext.ServiceSchedules.Remove(schedule);
-        await dbContext.SaveChangesAsync();
-
-        return ApiResponseFactory.Ok(new { message = "Slot removed." }, HttpContext);
-    }
-
-    public record ServiceScheduleRequest
-    {
-        public string? Day { get; set; }
-        public string? StartTime { get; set; }
-        public string? EndTime { get; set; }
-        public bool Status { get; set; } = true;
-    }
-
     public record CreateServiceRequest(
         string Name,
         string? Slug,
-        string? ServiceIcon,
         string? BannerImage,
+        long? ParentId,
+        string? ServiceIcon,
+        string? PriceUnit,
+        double? Rating,
+        int? ReviewCount,
         string? HeroTitle,
         string? HeroSubtitle,
-        long? ParentId,
         int Level,
         double InitialPrice,
         bool Status
     );
 
     public record UpdateServiceRequest(
-        string? Name,
+        string Name,
         string? Slug,
-        string? ServiceIcon,
+        long? ParentId,
         string? BannerImage,
+        string? ServiceIcon,
+        string? PriceUnit,
+        double? Rating,
+        int? ReviewCount,
         string? HeroTitle,
         string? HeroSubtitle,
-        long? ParentId,
-        int? Level,
-        double? InitialPrice,
-        bool? Status
+        int Level,
+        double InitialPrice,
+        bool Status
     );
 }

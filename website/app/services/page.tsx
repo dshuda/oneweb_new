@@ -1,9 +1,8 @@
 import type { Metadata } from "next";
-import Image from "next/image";
 import Link from "next/link";
 import Header from "../components/Header";
 import Footer from "../components/Footer";
-import { serviceCategories as fallbackCategories } from "../data/services";
+import BrowseCategories from "./BrowseCategories";
 
 export const metadata: Metadata = {
   title: "Browse Services - One Tap Service",
@@ -11,46 +10,7 @@ export const metadata: Metadata = {
     "Explore all service categories — cleaning, appliance repair, shifting, plumbing, security, and more. One tap away.",
 };
 
-import { resolveImageUrl } from "@/lib/utils";
-
-async function getCategories() {
-  try {
-    const backendUrl = process.env.INTERNAL_API_URL || (typeof window === 'undefined' ? 'http://127.0.0.1:5102' : '');
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 2500);
-
-    const res = await fetch(`${backendUrl}/api/v1/services/categories`, {
-      cache: 'no-store',
-      signal: controller.signal,
-    });
-    clearTimeout(timeoutId);
-
-    if (res.ok) {
-      const data = await res.json();
-      if (Array.isArray(data) && data.length > 0) {
-        return data.map((cat: any) => {
-          const nameParts = (cat.name || '').split(' ');
-          const firstName = nameParts[0] || cat.name;
-          const subName = nameParts.slice(1).join(' ') || 'Service';
-          return {
-            id: cat.id,
-            name: firstName,
-            sub: subName,
-            slug: cat.slug || firstName.toLowerCase(),
-            icon: resolveImageUrl(cat.serviceIcon || cat.bannerImage, '/service-icons/icon_cleaning.svg'),
-          };
-        });
-      }
-    }
-  } catch (e) {
-    // Fallback on error
-  }
-  return fallbackCategories;
-}
-
-export default async function ServicesPage() {
-  const categories = await getCategories();
-
+export default function ServicesPage() {
   return (
     <main className="min-h-screen bg-background">
       <Header />
@@ -77,35 +37,8 @@ export default async function ServicesPage() {
           </p>
         </div>
 
-        {/* Categories Grid */}
-        <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
-          {categories.map((category: any) => (
-            <Link
-              key={category.id}
-              href={`/category/${category.slug}`}
-              className="group flex flex-col items-center gap-3 rounded-2xl border border-border/80 bg-white p-6 text-center shadow-sm transition-all duration-300 hover:-translate-y-1 hover:border-primary/40 hover:shadow-lg hover:shadow-primary/10"
-            >
-              <span className="flex h-16 w-16 items-center justify-center rounded-2xl border border-primary/25 bg-primary/5 transition-colors group-hover:border-primary/40 group-hover:bg-primary/10">
-                {typeof category.icon === "string" ? (
-                  <Image
-                    src={category.icon}
-                    alt={category.name}
-                    width={42}
-                    height={42}
-                    className="h-9 w-9 object-contain"
-                  />
-                ) : (
-                  <span className="text-primary font-bold text-xl">★</span>
-                )}
-              </span>
-              <span className="text-sm font-semibold leading-snug text-foreground">
-                {category.name}
-                <br />
-                {category.sub}
-              </span>
-            </Link>
-          ))}
-        </div>
+        {/* Categories Grid — loaded from the API */}
+        <BrowseCategories />
       </div>
 
       <Footer />

@@ -244,7 +244,7 @@ export default function ServiceDetailsDrawer({
               ) : (
                 <ol className="space-y-6">
                   {details.workingSteps.map((step, i) => (
-                    <li key={i} className="flex gap-4">
+                    <li key={typeof step === "string" ? step : String(i)} className="flex gap-4">
                       <div className="relative flex shrink-0 flex-col items-center">
                         {i < details.workingSteps.length - 1 && (
                           <span
@@ -326,7 +326,7 @@ export default function ServiceDetailsDrawer({
                     const isOpen = openFaq === i;
                     return (
                       <div
-                        key={i}
+                        key={faq.question ?? String(i)}
                         className="overflow-hidden rounded-xl border border-border/80 bg-white"
                       >
                         <button

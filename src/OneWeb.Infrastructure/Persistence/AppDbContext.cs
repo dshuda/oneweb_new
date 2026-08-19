@@ -32,6 +32,10 @@ public class AppDbContext : DbContext
     public DbSet<Coupon> Coupons { get; set; }
     public DbSet<Notification> Notifications { get; set; }
     public DbSet<SupportTicket> SupportTickets { get; set; }
+    public DbSet<Language> Languages { get; set; }
+    public DbSet<ServiceTranslation> ServiceTranslations { get; set; }
+    public DbSet<CustomPage> CustomPages { get; set; }
+    public DbSet<CustomPageTranslation> CustomPageTranslations { get; set; }
     public DbSet<VendorWithdrawRequest> VendorWithdrawRequests { get; set; }
     public DbSet<CommissionHistory> CommissionHistories { get; set; }
     public DbSet<Upload> Uploads { get; set; }

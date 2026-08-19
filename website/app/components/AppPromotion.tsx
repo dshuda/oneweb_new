@@ -3,6 +3,7 @@
 import { Button } from "@/components/ui/button";
 import Image from "next/image";
 import { FaApple, FaGooglePlay } from "react-icons/fa";
+import { asset } from '@/app/lib/assets';
 
 export default function AppPromotion() {
   return (
@@ -75,7 +76,7 @@ export default function AppPromotion() {
             {/* Right - in-flow image on mobile/tablet; hidden on desktop where the absolute bleed version takes over */}
             <div className="flex justify-center lg:hidden">
               <Image
-                src="/mockup-hand.svg"
+                src={asset('/mockup-hand.svg')}
                 alt="One Tap Service mobile app held in hand"
                 width={745}
                 height={526}
@@ -87,7 +88,7 @@ export default function AppPromotion() {
 
           {/* Mockup image bleeding past the bottom-right corner (desktop only) */}
           <Image
-            src="/mockup-hand.svg"
+            src={asset('/mockup-hand.svg')}
             alt="One Tap Service mobile app held in hand"
             width={745}
             height={526}

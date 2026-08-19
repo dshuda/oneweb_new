@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
+using NetTopologySuite.Geometries;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using OneWeb.Infrastructure.Persistence;
 
@@ -20,6 +21,7 @@ namespace OneWeb.Infrastructure.Migrations
                 .HasAnnotation("ProductVersion", "10.0.7")
                 .HasAnnotation("Relational:MaxIdentifierLength", 63);
 
+            NpgsqlModelBuilderExtensions.HasPostgresExtension(modelBuilder, "postgis");
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
 
             modelBuilder.Entity("OneWeb.Domain.Entities.Address", b =>
@@ -411,6 +413,121 @@ namespace OneWeb.Infrastructure.Migrations
                     b.ToTable("coupon_usages", (string)null);
                 });
 
+            modelBuilder.Entity("OneWeb.Domain.Entities.CustomPage", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint")
+                        .HasColumnName("id");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
+
+                    b.Property<string>("Content")
+                        .HasColumnType("text")
+                        .HasColumnName("content");
+
+                    b.Property<DateTime?>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("Link")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("link");
+
+                    b.Property<string>("MetaDescription")
+                        .HasColumnType("text")
+                        .HasColumnName("meta_description");
+
+                    b.Property<string>("MetaKeywords")
+                        .HasColumnType("text")
+                        .HasColumnName("meta_keywords");
+
+                    b.Property<string>("MetaTitle")
+                        .HasColumnType("text")
+                        .HasColumnName("meta_title");
+
+                    b.Property<string>("Slug")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("slug");
+
+                    b.Property<bool>("Status")
+                        .HasColumnType("boolean")
+                        .HasColumnName("status");
+
+                    b.Property<string>("Title")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("title");
+
+                    b.Property<string>("Type")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("text")
+                        .HasDefaultValue("web")
+                        .HasColumnName("type");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.HasKey("Id")
+                        .HasName("pk_custom_pages");
+
+                    b.HasIndex("Link")
+                        .IsUnique()
+                        .HasDatabaseName("ix_custom_pages_link");
+
+                    b.HasIndex("Slug")
+                        .HasDatabaseName("ix_custom_pages_slug");
+
+                    b.ToTable("custom_pages", (string)null);
+                });
+
+            modelBuilder.Entity("OneWeb.Domain.Entities.CustomPageTranslation", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint")
+                        .HasColumnName("id");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
+
+                    b.Property<string>("Content")
+                        .HasColumnType("text")
+                        .HasColumnName("content");
+
+                    b.Property<DateTime?>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("Lang")
+                        .HasColumnType("text")
+                        .HasColumnName("lang");
+
+                    b.Property<long>("PageId")
+                        .HasColumnType("bigint")
+                        .HasColumnName("page_id");
+
+                    b.Property<string>("Title")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("title");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.HasKey("Id")
+                        .HasName("pk_custom_page_translations");
+
+                    b.HasIndex("PageId")
+                        .HasDatabaseName("ix_custom_page_translations_page_id");
+
+                    b.ToTable("custom_page_translations", (string)null);
+                });
+
             modelBuilder.Entity("OneWeb.Domain.Entities.District", b =>
                 {
                     b.Property<long>("Id")
@@ -532,6 +649,60 @@ namespace OneWeb.Infrastructure.Migrations
                         .HasName("pk_fcm_tokens");
 
                     b.ToTable("fcm_tokens", (string)null);
+                });
+
+            modelBuilder.Entity("OneWeb.Domain.Entities.Language", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint")
+                        .HasColumnName("id");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
+
+                    b.Property<string>("Code")
+                        .IsRequired()
+                        .HasMaxLength(10)
+                        .HasColumnType("character varying(10)")
+                        .HasColumnName("code");
+
+                    b.Property<DateTime?>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<bool>("IsDefault")
+                        .HasColumnType("boolean")
+                        .HasColumnName("is_default");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("name");
+
+                    b.Property<string>("NativeName")
+                        .HasColumnType("text")
+                        .HasColumnName("native_name");
+
+                    b.Property<bool>("Rtl")
+                        .HasColumnType("boolean")
+                        .HasColumnName("rtl");
+
+                    b.Property<bool>("Status")
+                        .HasColumnType("boolean")
+                        .HasColumnName("status");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.HasKey("Id")
+                        .HasName("pk_languages");
+
+                    b.HasIndex("Code")
+                        .IsUnique()
+                        .HasDatabaseName("ix_languages_code");
+
+                    b.ToTable("languages", (string)null);
                 });
 
             modelBuilder.Entity("OneWeb.Domain.Entities.Notification", b =>
@@ -656,6 +827,14 @@ namespace OneWeb.Infrastructure.Migrations
                         .HasColumnType("text")
                         .HasColumnName("latitude");
 
+                    b.Property<Point>("Location")
+                        .HasColumnType("geometry(Point,4326)")
+                        .HasColumnName("location");
+
+                    b.Property<string>("LocationName")
+                        .HasColumnType("text")
+                        .HasColumnName("location_name");
+
                     b.Property<string>("Longitude")
                         .HasColumnType("text")
                         .HasColumnName("longitude");
@@ -736,6 +915,11 @@ namespace OneWeb.Infrastructure.Migrations
 
                     b.HasIndex("DeliveryStatus")
                         .HasDatabaseName("ix_orders_delivery_status");
+
+                    b.HasIndex("Location")
+                        .HasDatabaseName("ix_orders_location");
+
+                    NpgsqlIndexBuilderExtensions.HasMethod(b.HasIndex("Location"), "gist");
 
                     b.HasIndex("ServiceId")
                         .HasDatabaseName("ix_orders_service_id");
@@ -953,6 +1137,14 @@ namespace OneWeb.Infrastructure.Migrations
                         .HasColumnType("text")
                         .HasColumnName("faq");
 
+                    b.Property<string>("HeroSubtitle")
+                        .HasColumnType("text")
+                        .HasColumnName("hero_subtitle");
+
+                    b.Property<string>("HeroTitle")
+                        .HasColumnType("text")
+                        .HasColumnName("hero_title");
+
                     b.Property<double>("InitialPrice")
                         .HasColumnType("double precision")
                         .HasColumnName("initial_price");
@@ -986,6 +1178,18 @@ namespace OneWeb.Infrastructure.Migrations
                     b.Property<long?>("ParentId")
                         .HasColumnType("bigint")
                         .HasColumnName("parent_id");
+
+                    b.Property<string>("PriceUnit")
+                        .HasColumnType("text")
+                        .HasColumnName("price_unit");
+
+                    b.Property<double?>("Rating")
+                        .HasColumnType("double precision")
+                        .HasColumnName("rating");
+
+                    b.Property<int?>("ReviewCount")
+                        .HasColumnType("integer")
+                        .HasColumnName("review_count");
 
                     b.Property<string>("ServiceIcon")
                         .HasColumnType("text")
@@ -1107,6 +1311,70 @@ namespace OneWeb.Infrastructure.Migrations
                         .HasDatabaseName("ix_service_schedules_service_id");
 
                     b.ToTable("service_schedules", (string)null);
+                });
+
+            modelBuilder.Entity("OneWeb.Domain.Entities.ServiceTranslation", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint")
+                        .HasColumnName("id");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
+
+                    b.Property<string>("About")
+                        .HasColumnType("text")
+                        .HasColumnName("about");
+
+                    b.Property<DateTime?>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("Detail")
+                        .HasColumnType("text")
+                        .HasColumnName("detail");
+
+                    b.Property<string>("FAQ")
+                        .HasColumnType("text")
+                        .HasColumnName("faq");
+
+                    b.Property<string>("HeroSubtitle")
+                        .HasColumnType("text")
+                        .HasColumnName("hero_subtitle");
+
+                    b.Property<string>("HeroTitle")
+                        .HasColumnType("text")
+                        .HasColumnName("hero_title");
+
+                    b.Property<string>("Lang")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("lang");
+
+                    b.Property<string>("Name")
+                        .HasColumnType("text")
+                        .HasColumnName("name");
+
+                    b.Property<long>("ServiceId")
+                        .HasColumnType("bigint")
+                        .HasColumnName("service_id");
+
+                    b.Property<string>("ServiceQuality")
+                        .HasColumnType("text")
+                        .HasColumnName("service_quality");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.HasKey("Id")
+                        .HasName("pk_service_translations");
+
+                    b.HasIndex("ServiceId", "Lang")
+                        .IsUnique()
+                        .HasDatabaseName("ix_service_translations_service_id_lang");
+
+                    b.ToTable("service_translations", (string)null);
                 });
 
             modelBuilder.Entity("OneWeb.Domain.Entities.Slider", b =>
@@ -1694,6 +1962,18 @@ namespace OneWeb.Infrastructure.Migrations
                     b.Navigation("User");
                 });
 
+            modelBuilder.Entity("OneWeb.Domain.Entities.CustomPageTranslation", b =>
+                {
+                    b.HasOne("OneWeb.Domain.Entities.CustomPage", "Page")
+                        .WithMany("Translations")
+                        .HasForeignKey("PageId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_custom_page_translations_custom_pages_page_id");
+
+                    b.Navigation("Page");
+                });
+
             modelBuilder.Entity("OneWeb.Domain.Entities.District", b =>
                 {
                     b.HasOne("OneWeb.Domain.Entities.Division", "Division")
@@ -1802,6 +2082,18 @@ namespace OneWeb.Infrastructure.Migrations
                     b.Navigation("Service");
                 });
 
+            modelBuilder.Entity("OneWeb.Domain.Entities.ServiceTranslation", b =>
+                {
+                    b.HasOne("OneWeb.Domain.Entities.Service", "Service")
+                        .WithMany()
+                        .HasForeignKey("ServiceId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_service_translations_services_service_id");
+
+                    b.Navigation("Service");
+                });
+
             modelBuilder.Entity("OneWeb.Domain.Entities.SupportTicket", b =>
                 {
                     b.HasOne("OneWeb.Domain.Entities.User", "User")
@@ -1877,6 +2169,11 @@ namespace OneWeb.Infrastructure.Migrations
             modelBuilder.Entity("OneWeb.Domain.Entities.BlogCategory", b =>
                 {
                     b.Navigation("Blogs");
+                });
+
+            modelBuilder.Entity("OneWeb.Domain.Entities.CustomPage", b =>
+                {
+                    b.Navigation("Translations");
                 });
 
             modelBuilder.Entity("OneWeb.Domain.Entities.Order", b =>

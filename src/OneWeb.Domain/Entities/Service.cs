@@ -24,6 +24,14 @@ public class Service : BaseEntity
     public bool Status { get; set; } = true;
     public long CreatedBy { get; set; }
 
+    // Presentation fields the storefront renders on service cards and category
+    // heroes. Populated from the design catalogue (tools/export-catalog.mjs).
+    public string? PriceUnit { get; set; }   // e.g. "/home", "/ton"
+    public double? Rating { get; set; }
+    public int? ReviewCount { get; set; }
+    public string? HeroTitle { get; set; }    // categories only
+    public string? HeroSubtitle { get; set; } // categories only
+
     // Navigation properties
     public Service? Parent { get; set; }
     public ICollection<Service> Children { get; set; }

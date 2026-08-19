@@ -21,6 +21,7 @@ public class GetVendorsQueryHandler : IRequestHandler<GetVendorsQuery, PagedResu
         // Query vendors, include User
         var query = _dbContext.Vendors
             .Include(v => v.User)
+            .Include(v => v.VendorServices)
             .AsQueryable();
         
         // Filter by Status if provided
@@ -54,7 +55,8 @@ public class GetVendorsQueryHandler : IRequestHandler<GetVendorsQuery, PagedResu
             v.TotalEarnings,
             v.Address,
             v.Status,
-            v.CreatedAt
+            v.CreatedAt,
+            v.VendorServices.Select(vs => vs.ServiceId).ToList()
         )).ToList();
         
         return new PagedResult<VendorDto>(

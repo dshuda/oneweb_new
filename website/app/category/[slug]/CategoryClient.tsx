@@ -6,9 +6,12 @@ import { useEffect, useState } from "react";
 import CategoryHero from "@/app/components/CategoryHero";
 import CategorySidebar from "@/app/components/CategorySidebar";
 import ServiceCard from "@/app/components/ServiceCard";
-import { getCategoryDetailsBySlug, CategoryDetails, SubCategory, ServiceItem } from "@/app/data/services";
-import { resolveImageUrl } from "@/lib/utils";
-import { api } from "@/lib/api";
+import {
+  fetchCategories,
+  fetchCategoryServices,
+  type CatalogCategory,
+  type CatalogSubCategory,
+} from "@/app/lib/catalog";
 
 interface CategoryClientProps {
   slug: string;
@@ -18,121 +21,50 @@ export default function CategoryClient({ slug: initialSlug }: CategoryClientProp
   const router = useRouter();
   const pathname = usePathname();
 
+  // The active category is kept in state so switching categories swaps the
+  // content IN PLACE (no full page reload / scroll-to-top jump).
   const [slug, setSlug] = useState(initialSlug);
-  const [activeId, setActiveId] = useState<number>(0);
-  const [dynamicCategory, setDynamicCategory] = useState<CategoryDetails | null>(null);
+  const [categories, setCategories] = useState<CatalogCategory[]>([]);
+  const [groups, setGroups] = useState<CatalogSubCategory[]>([]);
+  const [activeId, setActiveId] = useState<number | null>(null);
+  const [loading, setLoading] = useState(true);
 
-  // 1. Fetch live subcategories and images from backend
+  const category = categories.find((c) => c.slug === slug) ?? null;
+
+  // Category list (with its sub-category tabs) comes from the API.
   useEffect(() => {
-    const fetchLiveCategory = async () => {
-      try {
-        const res = await api.get('/api/v1/services/categories');
-        const data = res.data;
-        if (Array.isArray(data) && data.length > 0) {
-          const matched = data.find((c: any) => 
-            (c.slug && c.slug.toLowerCase() === slug.toLowerCase()) ||
-            (c.name && c.name.toLowerCase().includes(slug.replace('-', ' ').toLowerCase())) ||
-            (slug.toLowerCase().includes((c.name || '').toLowerCase()))
-          );
+    const controller = new AbortController();
+    fetchCategories(controller.signal)
+      .then(setCategories)
+      .catch(() => setCategories([]));
+    return () => controller.abort();
+  }, []);
 
-          if (matched && Array.isArray(matched.children) && matched.children.length > 0) {
-            const fallback = getCategoryDetailsBySlug(slug);
-            const liveSubCategories: SubCategory[] = matched.children.map((child: any, idx: number) => {
-              const childImg = child.bannerImage || child.serviceIcon;
-              
-              const matchedFallbackSub = fallback?.subCategories?.find((fs: any) => 
-                (fs.name && fs.name.toLowerCase().trim() === child.name.toLowerCase().trim()) || fs.id === child.id
-              );
-
-              // Map actual services under this subcategory directly from the API
-              const services: ServiceItem[] = (Array.isArray(child.children) && child.children.length > 0)
-                ? child.children.map((srv: any) => {
-                    const srvImg = srv.bannerImage || srv.serviceIcon || childImg;
-                    return {
-                      id: srv.id,
-                      title: srv.name || child.name,
-                      image: resolveImageUrl(srvImg),
-                      rating: 4.8,
-                      reviewCount: 120,
-                      price: srv.initialPrice || child.initialPrice || 499,
-                      priceUnit: '/service',
-                      serviceCount: 1,
-                    };
-                  })
-                : [{
-                    id: child.id,
-                    title: child.name,
-                    image: resolveImageUrl(childImg),
-                    rating: 4.8,
-                    reviewCount: 120,
-                    price: child.initialPrice || 499,
-                    priceUnit: '/service',
-                    serviceCount: 1,
-                  }];
-
-              return {
-                id: child.id || (idx + 1),
-                name: child.name,
-                icon: matchedFallbackSub?.icon || (() => null),
-                services,
-              };
-            });
-
-            if (liveSubCategories.length > 0) {
-              setDynamicCategory({
-                id: matched.id,
-                name: matched.name,
-                slug: matched.slug || slug,
-                heroTitle: fallback?.heroTitle || `${matched.name} Services`,
-                heroTitleAccent: fallback?.heroTitleAccent || 'Delivered to Your Doorstep',
-                heroSubtitle: fallback?.heroSubtitle || `Expert ${matched.name.toLowerCase()} services in Dhaka. Verified professionals, transparent pricing.`,
-                subCategories: liveSubCategories,
-              });
-
-              setActiveId((prev) => {
-                const exists = liveSubCategories.some((s) => s.id === prev);
-                return exists ? prev : liveSubCategories[0].id;
-              });
-              return;
-            }
-          }
-        }
-      } catch (err) {
-        console.error('Failed to load dynamic category data:', err);
-      }
-      
-      const fb = getCategoryDetailsBySlug(slug);
-      setDynamicCategory(fb ?? null);
-      if (fb?.subCategories?.[0]) {
-        setActiveId(fb.subCategories[0].id);
-      }
-    };
-
-    fetchLiveCategory();
-  }, [slug]);
-
-  const category = dynamicCategory || getCategoryDetailsBySlug(slug);
-
-  const applySlug = (nextSlug: string) => {
-    setSlug(nextSlug);
-  };
-
+  // Services for whichever category is active.
   useEffect(() => {
-    const urlSlug = pathname.split("/").filter(Boolean).pop() ?? "";
-    if (urlSlug && urlSlug !== slug) {
-      applySlug(urlSlug);
-    }
-  }, [pathname]);
+    if (!category) return;
+    const controller = new AbortController();
+    setLoading(true);
+    fetchCategoryServices(category, controller.signal)
+      .then((next) => {
+        setGroups(next);
+        setActiveId(next[0]?.id ?? null);
+      })
+      .catch(() => setGroups([]))
+      .finally(() => setLoading(false));
+    return () => controller.abort();
+  }, [category]);
 
-  if (!category) return null;
-
-  const activeSub =
-    category.subCategories.find((sub) => sub.id === activeId) ??
-    category.subCategories[0];
+  // Keep the in-place state in sync with the URL (browser back/forward, etc.).
+  useEffect(() => {
+    const urlSlug = pathname.split("/").findLast(Boolean) ?? "";
+    if (urlSlug && urlSlug !== slug) setSlug(urlSlug);
+  }, [pathname, slug]);
 
   const handleCategoryChange = (newSlug: string) => {
     if (newSlug === slug) return;
-    applySlug(newSlug);
+    setSlug(newSlug);
+    // Update the URL without navigating away — no reload, no scroll jump.
     router.replace(`/category/${newSlug}`, { scroll: false });
   };
 
@@ -143,15 +75,28 @@ export default function CategoryClient({ slug: initialSlug }: CategoryClientProp
       ?.scrollIntoView({ behavior: "smooth", block: "start" });
   };
 
+  if (!category) {
+    return (
+      <div className="mx-auto max-w-7xl px-4 py-32 text-center text-muted-foreground">
+        {categories.length === 0 ? "Loading services…" : "Category not found."}
+      </div>
+    );
+  }
+
+  const activeGroup = groups.find((g) => g.id === activeId) ?? groups.at(0) ?? null;
+
   return (
     <>
       {/* Hero */}
       <div className="relative">
         <CategoryHero
           name={category.name}
-          title={category.heroTitle}
-          titleAccent={category.heroTitleAccent}
-          subtitle={category.heroSubtitle}
+          title={category.heroTitle ?? category.name}
+          titleAccent=""
+          subtitle={
+            category.heroSubtitle ??
+            `Browse trusted ${category.name.toLowerCase()} services, one tap away.`
+          }
         />
       </div>
 
@@ -168,8 +113,12 @@ export default function CategoryClient({ slug: initialSlug }: CategoryClientProp
           >
             {category.name}
           </Link>
-          <span className="mx-2">/</span>
-          <span className="font-medium text-foreground">{activeSub.name}</span>
+          {activeGroup && (
+            <>
+              <span className="mx-2">/</span>
+              <span className="font-medium text-foreground">{activeGroup.name}</span>
+            </>
+          )}
         </nav>
 
         {/* Category sidebar + services (two-column on desktop) */}
@@ -177,6 +126,11 @@ export default function CategoryClient({ slug: initialSlug }: CategoryClientProp
           {/* Left category nav */}
           <CategorySidebar
             activeSlug={category.slug}
+            categories={categories.map((c) => ({
+              slug: c.slug,
+              name: c.name,
+              icon: c.icon,
+            }))}
             onNavigate={handleCategoryChange}
           />
 
@@ -186,22 +140,21 @@ export default function CategoryClient({ slug: initialSlug }: CategoryClientProp
               id="category-services"
               className="scrollbar-hide -mx-4 flex gap-3 overflow-x-auto px-4 pb-2 scroll-mt-28 sm:mx-0 sm:px-0"
             >
-              {category.subCategories.map((sub) => {
-                const isActive = sub.id === activeSub.id;
+              {groups.map((group) => {
+                const isActive = group.id === activeGroup?.id;
                 return (
                   <button
-                    key={sub.id}
+                    key={group.id}
                     type="button"
                     aria-pressed={isActive}
-                    onClick={() => handleTabClick(sub.id)}
+                    onClick={() => handleTabClick(group.id)}
                     className={`flex shrink-0 items-center gap-2 rounded-full border px-4 py-2.5 text-sm font-semibold transition-all sm:px-5 ${
                       isActive
                         ? "border-primary/40 bg-primary/10 text-primary shadow-sm"
                         : "border-border bg-white text-muted-foreground hover:border-primary/30 hover:text-foreground"
                     }`}
                   >
-                    <sub.icon size={16} strokeWidth={2.2} />
-                    {sub.name}
+                    {group.name}
                   </button>
                 );
               })}
@@ -210,12 +163,14 @@ export default function CategoryClient({ slug: initialSlug }: CategoryClientProp
             {/* Heading + count */}
             <div className="mb-3 mt-9 flex flex-wrap items-center gap-x-3 gap-y-1">
               <h2 className="text-2xl font-bold text-foreground sm:text-3xl">
-                {activeSub.name}
+                {activeGroup?.name ?? category.name}
               </h2>
-              <span className="rounded-full bg-primary/10 px-2.5 py-1 text-xs font-semibold text-primary">
-                {activeSub.services.length}{" "}
-                {activeSub.services.length === 1 ? "Service" : "Services"}
-              </span>
+              {activeGroup && (
+                <span className="rounded-full bg-primary/10 px-2.5 py-1 text-xs font-semibold text-primary">
+                  {activeGroup.services.length}{" "}
+                  {activeGroup.services.length === 1 ? "Service" : "Services"}
+                </span>
+              )}
             </div>
             <p className="mb-8 text-sm text-muted-foreground">
               Hand-picked {category.name.toLowerCase()} services — quality
@@ -223,21 +178,37 @@ export default function CategoryClient({ slug: initialSlug }: CategoryClientProp
             </p>
 
             {/* Services grid */}
-            <div className="grid gap-6 sm:grid-cols-2 xl:grid-cols-3">
-              {activeSub.services.map((service) => (
-                <ServiceCard
-                  key={service.id}
-                  title={service.title}
-                  image={service.image}
-                  rating={service.rating}
-                  reviewCount={service.reviewCount}
-                  price={service.price}
-                  priceUnit={service.priceUnit}
-                  serviceCount={service.serviceCount}
-                  subServices={service.subServices}
-                />
-              ))}
-            </div>
+            {loading ? (
+              <p className="py-12 text-center text-sm text-muted-foreground">
+                Loading services…
+              </p>
+            ) : !activeGroup ? (
+              <p className="py-12 text-center text-sm text-muted-foreground">
+                No services are available in this category yet.
+              </p>
+            ) : (
+              <div className="grid gap-6 sm:grid-cols-2 xl:grid-cols-3">
+                {activeGroup.services.map((service) => (
+                  <ServiceCard
+                    key={service.serviceId}
+                    serviceId={service.serviceId}
+                    title={service.title}
+                    image={service.image}
+                    rating={service.rating}
+                    reviewCount={service.reviewCount}
+                    price={service.price}
+                    priceUnit={service.priceUnit}
+                    serviceCount={service.packages.length || undefined}
+                    subServices={service.packages.map((p) => ({
+                      id: p.priceId,
+                      priceId: p.priceId,
+                      name: p.name,
+                      price: p.price,
+                    }))}
+                  />
+                ))}
+              </div>
+            )}
           </div>
         </div>
       </div>

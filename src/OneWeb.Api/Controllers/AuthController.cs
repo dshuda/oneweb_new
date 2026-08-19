@@ -2,7 +2,6 @@ using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
 using OneWeb.Api.DTOs;
 using OneWeb.Application.Features.Auth.Commands;
 using OneWeb.Application.Features.Auth.Vendor;
@@ -14,12 +13,10 @@ namespace OneWeb.Api.Controllers;
 public class AuthController : ControllerBase
 {
     private readonly IMediator _mediator;
-    private readonly OneWeb.Infrastructure.Persistence.AppDbContext _dbContext;
     
-    public AuthController(IMediator mediator, OneWeb.Infrastructure.Persistence.AppDbContext dbContext)
+    public AuthController(IMediator mediator)
     {
         _mediator = mediator;
-        _dbContext = dbContext;
     }
     
     // DTOs as nested records
@@ -27,13 +24,32 @@ public class AuthController : ControllerBase
     public record VerifyOtpRequest(string Phone, string Otp);
     public record AdminLoginRequest(string Email, string Password);
     public record RefreshTokenRequest(long UserId, string RefreshToken);
-    public record UpdateProfileRequest(string? Name, string? Address, string? Email);
     
     [HttpPost("send-otp")]
     public async Task<IActionResult> SendOtp([FromBody] SendOtpRequest request)
     {
-        var result = await _mediator.Send(new SendOtpCommand(request.Phone));
+        var result = await _mediator.Send(new SendOtpCommand(request.Phone, GetClientIp()));
+
+        // 429 with Retry-After when the caller is being rate limited, so clients
+        // can back off properly instead of hammering.
+        if (!result.Success && result.RetryAfterSeconds > 0)
+        {
+            Response.Headers.RetryAfter = result.RetryAfterSeconds.ToString();
+            return StatusCode(StatusCodes.Status429TooManyRequests,
+                new { success = false, message = result.Message, retryAfter = result.RetryAfterSeconds });
+        }
+
         return Ok(new { success = result.Success, message = result.Message });
+    }
+
+    /// <summary>Real client address, honouring X-Forwarded-For when behind nginx/Cloudflare.</summary>
+    private string? GetClientIp()
+    {
+        var forwarded = Request.Headers["X-Forwarded-For"].FirstOrDefault();
+        if (!string.IsNullOrWhiteSpace(forwarded))
+            return forwarded.Split(',')[0].Trim();
+
+        return HttpContext.Connection.RemoteIpAddress?.ToString();
     }
     
     [HttpPost("verify-otp")]
@@ -51,94 +67,9 @@ public class AuthController : ControllerBase
             refreshToken = result.RefreshToken, 
             userType = result.UserType,
             userId = result.UserId,
+            NameRequired = result.NameRequired,
             name = result.Name,
-            address = result.Address,
-            email = result.Email,
-            phone = result.Phone,
-            NameRequired = result.NameRequired
-        });
-    }
-
-    private long ExtractUserId()
-    {
-        var val = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value
-            ?? User.FindFirst("nameid")?.Value
-            ?? User.FindFirst("sub")?.Value
-            ?? User.FindFirst("id")?.Value
-            ?? User.FindFirst("userId")?.Value;
-
-        if (long.TryParse(val, out var id) && id > 0)
-            return id;
-
-        var phone = User.FindFirst("phone")?.Value ?? User.FindFirst(System.Security.Claims.ClaimTypes.MobilePhone)?.Value;
-        if (!string.IsNullOrEmpty(phone))
-        {
-            var user = _dbContext.Users.FirstOrDefault(u => u.Phone == phone);
-            if (user != null) return user.Id;
-        }
-
-        var email = User.FindFirst("email")?.Value ?? User.FindFirst(System.Security.Claims.ClaimTypes.Email)?.Value;
-        if (!string.IsNullOrEmpty(email))
-        {
-            var user = _dbContext.Users.FirstOrDefault(u => u.Email == email);
-            if (user != null) return user.Id;
-        }
-
-        return 0;
-    }
-
-    [Authorize]
-    [HttpGet("me")]
-    public async Task<IActionResult> GetCurrentUser()
-    {
-        var userId = ExtractUserId();
-        if (userId <= 0)
-            return Unauthorized(new { message = "Invalid user token" });
-
-        var user = await _dbContext.Users.FirstOrDefaultAsync(u => u.Id == userId);
-        if (user == null)
-            return NotFound(new { message = "User not found" });
-
-        return Ok(new
-        {
-            id = user.Id,
-            name = user.Name,
-            phone = user.Phone,
-            email = user.Email,
-            address = user.Address,
-            userType = user.UserType
-        });
-    }
-
-    [Authorize]
-    [HttpPut("profile")]
-    [HttpPost("profile")]
-    public async Task<IActionResult> UpdateProfile([FromBody] UpdateProfileRequest request)
-    {
-        var userId = ExtractUserId();
-        if (userId <= 0)
-            return Unauthorized(new { message = "Invalid user token" });
-
-        var user = await _dbContext.Users.FirstOrDefaultAsync(u => u.Id == userId);
-        if (user == null)
-            return NotFound(new { message = "User not found" });
-
-        if (request.Name != null) user.Name = request.Name.Trim();
-        if (request.Address != null) user.Address = request.Address.Trim();
-        if (request.Email != null) user.Email = request.Email.Trim();
-
-        _dbContext.Entry(user).State = EntityState.Modified;
-        await _dbContext.SaveChangesAsync();
-
-        return Ok(new
-        {
-            success = true,
-            message = "Profile updated successfully",
-            id = user.Id,
-            name = user.Name,
-            phone = user.Phone,
-            email = user.Email,
-            address = user.Address
+            phone = result.Phone
         });
     }
     

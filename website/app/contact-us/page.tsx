@@ -20,7 +20,7 @@ const contactInfo = [
   {
     icon: FiMapPin,
     title: "Visit Us",
-    lines: ["66 Kalabagan", "Dhanmondi, Dhaka"],
+    lines: ["Level 4, House 12, Road 5", "Banani, Dhaka 1213"],
   },
   {
     icon: FiPhone,

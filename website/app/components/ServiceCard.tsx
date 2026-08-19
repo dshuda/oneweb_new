@@ -12,10 +12,10 @@ import {
   DrawerHeader,
   DrawerTitle,
 } from "@/components/ui/drawer";
-import { cn, formatReviewCount, resolveImageUrl } from "@/lib/utils";
+import { cn, formatReviewCount } from "@/lib/utils";
 import { ArrowLeft } from "lucide-react";
 import Image from "next/image";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { FiChevronRight, FiStar } from "react-icons/fi";
 import { useCart } from "./CartProvider";
 import ServiceDetailsDrawer from "./ServiceDetailsDrawer";
@@ -30,6 +30,8 @@ interface ServiceCardProps {
   priceUnit?: string;
   serviceCount?: number;
   subServices?: SubService[];
+  /** Backend ids — carried into the cart so checkout can place a real order. */
+  serviceId?: number;
   /** Show the "View Details" button + bottom details drawer (default true). */
   showDetails?: boolean;
 }
@@ -44,6 +46,7 @@ export default function ServiceCard({
   priceUnit,
   serviceCount,
   subServices,
+  serviceId,
   showDetails = true,
 }: ServiceCardProps) {
   const [detailsOpen, setDetailsOpen] = useState(false);
@@ -55,15 +58,18 @@ export default function ServiceCard({
   const displayCount = subServices?.length ?? serviceCount;
 
   const bookBase = () =>
-    requestSchedule({ serviceTitle: title, image: resolveImageUrl(image), price, priceUnit });
+    // priceId 0 tells the API to charge the service's own InitialPrice.
+    requestSchedule({ serviceTitle: title, image, price, priceUnit, serviceId, priceId: 0 });
 
   const bookSub = (sub: SubService) => {
     requestSchedule({
       serviceTitle: title,
       subName: sub.name,
-      image: resolveImageUrl(image),
+      image,
       price: sub.price,
       priceUnit: sub.priceUnit,
+      serviceId,
+      priceId: sub.priceId,
     });
     setPackagesOpen(false);
   };
@@ -73,28 +79,16 @@ export default function ServiceCard({
     setPackagesOpen(true);
   };
 
-  const initialImg = resolveImageUrl(image, '/service-banners/banner_cleaning.png');
-  const [imgSrc, setImgSrc] = useState(initialImg);
-
-  useEffect(() => {
-    setImgSrc(resolveImageUrl(image, '/service-banners/banner_cleaning.png'));
-  }, [image]);
-
   return (
     <>
       <Card className="group gap-0 overflow-hidden rounded-2xl bg-white p-0 shadow-sm ring-border transition-all hover:-translate-y-1 hover:shadow-lg">
         {/* Image Container */}
-        <div className="relative h-40 w-full overflow-hidden bg-gray-100 sm:h-44">
-          <img
-            src={imgSrc}
+        <div className="relative h-40 w-full overflow-hidden bg-gray-200 sm:h-44">
+          <Image
+            src={image}
             alt={title}
-            onError={() => {
-              if (imgSrc !== '/service-banners/banner_cleaning.png') {
-                setImgSrc('/service-banners/banner_cleaning.png');
-              }
-            }}
-            className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-110"
-            loading="lazy"
+            fill
+            className="object-cover transition-transform duration-500 group-hover:scale-110"
           />
           {isBestSeller && (
             <Badge className="absolute top-3 left-3 rounded-md bg-yellow-400 px-2.5 py-1 text-xs font-bold text-black hover:bg-yellow-400">
@@ -107,14 +101,19 @@ export default function ServiceCard({
         <div className="flex flex-col gap-2.5 p-4">
           <h3 className="line-clamp-2 font-bold text-foreground">{title}</h3>
 
-          {/* Rating */}
-          <div className="flex items-center gap-1.5">
-            <FiStar size={15} className="fill-yellow-400 text-yellow-400" />
-            <span className="text-sm font-bold text-foreground">{rating}</span>
-            <span className="text-xs text-muted-foreground">
-              ({formatReviewCount(reviewCount)} reviews)
-            </span>
-          </div>
+          {/* Rating — hidden when the API carries no score, so a backend
+              without review data doesn't render a bare "0". */}
+          {rating > 0 && (
+            <div className="flex items-center gap-1.5">
+              <FiStar size={15} className="fill-yellow-400 text-yellow-400" />
+              <span className="text-sm font-bold text-foreground">{rating}</span>
+              {reviewCount > 0 && (
+                <span className="text-xs text-muted-foreground">
+                  ({formatReviewCount(reviewCount)} reviews)
+                </span>
+              )}
+            </div>
+          )}
 
           {/* Price + service count */}
           <div className="flex items-center justify-between gap-3">

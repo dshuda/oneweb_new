@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import {
@@ -32,6 +32,12 @@ import {
   loadUserProfile,
   saveUserProfile,
 } from '@/app/lib/storage';
+import { ApiError, createOrder, initiateSslCommerz } from '@/app/lib/api';
+import { hasPickedLocation, loadLocation } from '@/app/lib/location';
+import { MapPreview } from '@/app/components/MapPreview';
+import { LocationPicker } from '@/app/components/LocationPicker';
+import { saveLocation, type PlaceSuggestion } from '@/app/lib/location';
+import { toApiTime } from '@/app/lib/catalog';
 
 interface CartDrawerProps {
   open: boolean;
@@ -42,7 +48,11 @@ interface CartDrawerProps {
 const PROMO_CODE = 'SAVE40';
 const OFFER_AMOUNT = 40;
 const DEFAULT_NAME = 'Anila Jaman';
-const DEFAULT_ADDRESS = 'House: 15, Road No.: 12, Dhanmondi, Dhaka-1205';
+/*
+ * The service address and coordinates come from the location the customer
+ * picked in the header — never a hardcoded demo address, which previously meant
+ * every order shipped to the same Dhanmondi flat regardless of the selection.
+ */
 
 export default function CartDrawer({
   open,
@@ -55,12 +65,21 @@ export default function CartDrawer({
   const [paidAmount, setPaidAmount] = useState(0);
   const [paidCount, setPaidCount] = useState(0);
   const [awaitingLogin, setAwaitingLogin] = useState(false);
-  const [postLoginReopen, setPostLoginReopen] = useState(false);
+  // One-shot flag: set just before the drawer is reopened after login, read
+  // by the reset effect. A ref keeps it out of the dependency graph.
+  const postLoginReopen = useRef(false);
+  const [placing, setPlacing] = useState(false);
+  const [syncNote, setSyncNote] = useState('');
+  const [checkoutError, setCheckoutError] = useState('');
   const [editing, setEditing] = useState(false);
   const [userName, setUserName] = useState(DEFAULT_NAME);
-  const [userAddress, setUserAddress] = useState(DEFAULT_ADDRESS);
+  const [userAddress, setUserAddress] = useState('');
+  // Coordinates that will be sent with the order — kept in state so the map
+  // shown here is the same point the backend receives, not a re-geocode.
+  const [coords, setCoords] = useState<{ lat: number; lng: number } | null>(null);
+  const [pickerOpen, setPickerOpen] = useState(false);
   const [draftName, setDraftName] = useState(userName);
-  const [draftAddress, setDraftAddress] = useState(userAddress);
+  const [draftAddress, setDraftAddress] = useState('');
   const [promoValue, setPromoValue] = useState(PROMO_CODE);
   const [promoApplied, setPromoApplied] = useState(true);
   const [promoError, setPromoError] = useState('');
@@ -69,12 +88,14 @@ export default function CartDrawer({
   // Close the success/edit states whenever the drawer is opened — except for
   // the automatic reopen right after logging in to complete a checkout.
   useEffect(() => {
-    if (open && !postLoginReopen) {
+    if (open && !postLoginReopen.current) {
       setEditing(false);
       setConfirmed(false);
       setPromoError('');
+      setSyncNote('');
+      setCheckoutError('');
     }
-    setPostLoginReopen(false);
+    postLoginReopen.current = false;
   }, [open]);
 
   // Keep the User Info. section in sync with the saved profile: fill it from
@@ -83,16 +104,24 @@ export default function CartDrawer({
   // user's details aren't shown.
   useEffect(() => {
     if (!user) {
+      const picked = loadLocation();
+      const fallback = picked.address;
+      setCoords({ lat: picked.lat, lng: picked.lng });
       setUserName(DEFAULT_NAME);
-      setUserAddress(DEFAULT_ADDRESS);
+      setUserAddress(fallback);
       setDraftName(DEFAULT_NAME);
-      setDraftAddress(DEFAULT_ADDRESS);
+      setDraftAddress(fallback);
       return;
     }
     if (!open) return;
     const profile = loadUserProfile();
     const nextName = profile.name || user.name || '';
-    const nextAddress = profile.address || '';
+    // A saved profile address wins; otherwise follow the picked location.
+    const picked = loadLocation();
+    setCoords({ lat: picked.lat, lng: picked.lng });
+    // An address chosen on the map is where the service must go, so it beats the
+    // saved profile address — you often book for somewhere other than home.
+    const nextAddress = hasPickedLocation() ? picked.address : profile.address || picked.address;
     if (nextName) {
       setUserName(nextName);
       setDraftName(nextName);
@@ -117,109 +146,138 @@ export default function CartDrawer({
     }
   };
 
-  const [isProcessing, setIsProcessing] = useState(false);
-  const [orderError, setOrderError] = useState('');
+  /**
+   * Place the booking. Each cart line becomes one order on the API; lines the
+   * API doesn't know about (services that only exist in the local catalogue)
+   * still land in the local booking history so the flow never dead-ends.
+   */
+  const completeCheckout = useCallback(async () => {
+    const paid = payable;
+    const snapshot = items.map((item) => ({ ...item }));
+    const count = snapshot.reduce((sum, item) => sum + item.qty, 0);
 
-  const completeCheckout = async () => {
-    if (items.length === 0) return;
-    setIsProcessing(true);
-    setOrderError('');
+    setPlacing(true);
+    setCheckoutError('');
+    const trackingCodes: string[] = [];
+    const orderIds: number[] = [];
+    const reasons: string[] = [];
+    let failures = 0;
 
-    try {
-      const token = typeof window !== 'undefined' ? localStorage.getItem('accessToken') : null;
-      const firstItem = items[0];
-      const serviceIdNum = parseInt(firstItem.id, 10) || 1;
-
-      const formatTimeSpan = (t?: string) => {
-        if (!t) return '10:00:00';
-        const start = t.split('-')[0].trim();
-        const match = start.match(/^(\d{1,2}):(\d{2})(?:\s*(AM|PM))?$/i);
-        if (match) {
-          let h = parseInt(match[1], 10);
-          const m = match[2];
-          const ampm = match[3]?.toUpperCase();
-          if (ampm === 'PM' && h < 12) h += 12;
-          if (ampm === 'AM' && h === 12) h = 0;
-          return `${h.toString().padStart(2, '0')}:${m}:00`;
+    for (const item of snapshot) {
+      try {
+        // Cards come from the API, so every cart line already knows its
+        // backend ids. A line without one predates that and can't be ordered.
+        if (!item.serviceId) {
+          failures += 1;
+          reasons.push(`"${item.serviceTitle}" is no longer available — please add it again.`);
+          continue;
         }
-        return '10:00:00';
-      };
-
-      // 1. Create real order in backend
-      const orderPayload = {
-        serviceId: serviceIdNum,
-        priceId: 0,
-        serviceDate: (firstItem.date || new Date().toISOString().split('T')[0]).split('T')[0],
-        time: formatTimeSpan(firstItem.time),
-        shippingAddress: userAddress || 'Dhaka, Bangladesh',
-        paymentType: payment === 'online' ? 'sslcommerz' : 'cod',
-        couponCode: promoApplied ? PROMO_CODE : null,
-        orderFrom: 'web'
-      };
-
-      const orderRes = await fetch('/api/v1/orders', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(token ? { Authorization: `Bearer ${token}` } : {})
-        },
-        body: JSON.stringify(orderPayload)
-      });
-
-      const orderData = await orderRes.json().catch(() => null);
-
-      if (!orderRes.ok || !orderData?.orderId) {
-        const errorMsg = orderData?.message 
-          || (orderData?.errors ? Object.values(orderData.errors).flat().join(', ') : null)
-          || orderData?.title 
-          || 'Failed to place order.';
-        throw new Error(errorMsg);
-      }
-
-      // 2. If online payment -> initiate SSLCommerz gateway & redirect
-      if (payment === 'online') {
-        const sslRes = await fetch('/api/v1/sslcommerz/initiate', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            ...(token ? { Authorization: `Bearer ${token}` } : {})
-          },
-          body: JSON.stringify({ orderId: orderData.orderId })
+        // Sequential by design: the API validates coupon usage per order, so
+        // parallel creation could race its per-user limit check.
+        // oxlint-disable-next-line no-await-in-loop
+        // The location stamped on the item wins; if the item predates this
+        // field, fall back to whatever is selected in the header now.
+        const place = item.location ?? (() => {
+          const current = loadLocation();
+          return { address: current.address, lat: current.lat, lng: current.lng };
+        })();
+        const order = await createOrder({
+          serviceId: item.serviceId,
+          priceId: item.priceId ?? 0,
+          serviceDate: item.date,
+          time: toApiTime(item.time),
+          shippingAddress: userAddress?.trim() ? userAddress : place.address,
+          latitude: String(place.lat),
+          longitude: String(place.lng),
+          locationName: place.address,
+          additionalInfo: item.subName
+            ? `${item.serviceTitle} — ${item.subName} × ${item.qty}`
+            : `${item.serviceTitle} × ${item.qty}`,
+          paymentType: payment === 'cod' ? 'cash_on_delivery' : 'online',
+          couponCode: promoApplied ? promoValue.trim() : null,
         });
+        if (order?.trackingCode) trackingCodes.push(order.trackingCode);
+        if (order?.orderId) orderIds.push(order.orderId);
+      } catch (error) {
+        failures += 1;
+        // Keep the server's own wording — "Service not found or not available"
+        // is far more actionable than a generic failure line.
+        reasons.push(
+          error instanceof ApiError
+            ? `"${item.serviceTitle}": ${error.message}`
+            : `"${item.serviceTitle}" could not be booked.`,
+        );
+      }
+    }
 
-        const sslData = await sslRes.json();
-        if (sslData?.success && sslData?.gatewayPageUrl) {
-          clearCart();
-          window.location.href = sslData.gatewayPageUrl;
-          return;
-        } else {
-          throw new Error(sslData?.message || 'Failed to initialize SSLCommerz payment.');
-        }
+    // ── Online payment ────────────────────────────────────────────────
+    // Never fall back to the local "booked" path here: no gateway redirect
+    // means no money moved, so claiming success would be a lie. Keep the cart
+    // and say what went wrong.
+    if (payment === 'online') {
+      if (orderIds.length === 0) {
+        setPlacing(false);
+        setCheckoutError(
+          `We could not create your order, so online payment cannot start. ${reasons[0] ?? ''}`.trim(),
+        );
+        return;
       }
 
-      // 3. If Cash on Delivery (COD) -> complete checkout
-      const paid = payable;
-      const count = items.reduce((sum, item) => sum + item.qty, 0);
+      // Record the booking before redirecting so it survives leaving the page.
       addBooking({
-        id: orderData.orderId.toString(),
-        trackingCode: orderData.trackingCode,
-        items: items.map((item) => ({ ...item })),
+        id: `bk-${Date.now()}`,
+        items: snapshot,
         total: paid,
-        payment: 'cod',
-        paymentStatus: 'unpaid',
-        deliveryStatus: 'pending',
+        payment,
         createdAt: new Date().toISOString(),
+        trackingCodes,
       });
-      setPaidAmount(paid);
-      setPaidCount(count);
-      setConfirmed(true);
-      clearCart();
-    } catch (err: any) {
-      setOrderError(err?.message || 'Failed to process order. Please try again.');
-    } finally {
-      setIsProcessing(false);
+
+      try {
+        const session = await initiateSslCommerz(orderIds[0]);
+        if (session?.gatewayPageUrl) {
+          clearCart();
+          window.location.href = session.gatewayPageUrl;
+          return;
+        }
+        setCheckoutError(
+          'The payment gateway did not return a checkout page. Your booking is saved — choose Cash on Delivery or retry payment from My Bookings.',
+        );
+      } catch {
+        setCheckoutError(
+          'Could not reach the payment gateway. Your booking is saved — choose Cash on Delivery or retry payment from My Bookings.',
+        );
+      }
+
+      setPlacing(false);
+      return;
     }
-  };
+
+    addBooking({
+      id: `bk-${Date.now()}`,
+      items: snapshot,
+      total: paid,
+      payment,
+      createdAt: new Date().toISOString(),
+      trackingCodes,
+    });
+
+    setPlacing(false);
+    setSyncNote(
+      failures > 0 && trackingCodes.length === 0
+        ? `Saved locally — ${reasons[0] ?? 'the booking service could not be reached'}. Our team will confirm by phone.`
+        : failures > 0
+          ? `Some items are awaiting confirmation: ${reasons[0] ?? ''}`.trim()
+          : '',
+    );
+    setPaidAmount(paid);
+    setPaidCount(count);
+    setConfirmed(true);
+    clearCart();
+    // Memoised so the post-login effect can depend on it honestly. The effect
+    // is guarded by `awaitingLogin`, which it clears immediately, so a
+    // dependency change cannot re-run the checkout.
+  }, [items, payable, payment, promoApplied, promoValue, userAddress, clearCart]);
 
   const handleConfirm = () => {
     // Require login before completing checkout.
@@ -229,7 +287,7 @@ export default function CartDrawer({
       openAuth('checkout');
       return;
     }
-    completeCheckout();
+    void completeCheckout();
   };
 
   // Resume and complete the pending checkout as soon as the user logs in.
@@ -237,12 +295,11 @@ export default function CartDrawer({
     if (awaitingLogin && user) {
       setAwaitingLogin(false);
       if (items.length === 0) return;
-      setPostLoginReopen(true);
-      completeCheckout();
+      postLoginReopen.current = true;
+      void completeCheckout();
       onOpenChange(true);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [awaitingLogin, user]);
+  }, [awaitingLogin, user, items.length, onOpenChange, completeCheckout]);
 
   // Cancel a pending checkout if the login drawer is dismissed while logged
   // out, and return the user to the cart so they can retry.
@@ -251,7 +308,7 @@ export default function CartDrawer({
       setAwaitingLogin(false);
       onOpenChange(true);
     }
-  }, [awaitingLogin, user, authOpen]);
+  }, [awaitingLogin, user, authOpen, onOpenChange]);
 
   return (
     <Drawer swipeDirection="right" open={open} onOpenChange={onOpenChange}>
@@ -268,6 +325,11 @@ export default function CartDrawer({
               {paidAmount.toLocaleString()}. Our team will confirm your
               bookings shortly.
             </DrawerDescription>
+            {syncNote && (
+              <p className="max-w-xs text-xs text-muted-foreground">
+                {syncNote}
+              </p>
+            )}
             <div className="mt-2 flex flex-col gap-2">
               <Button
                 className="rounded-full px-6"
@@ -447,6 +509,13 @@ export default function CartDrawer({
                       onChange={(e) => setDraftAddress(e.target.value)}
                       aria-label="Address"
                     />
+                    <button
+                      type="button"
+                      onClick={() => setPickerOpen(true)}
+                      className="mt-1 inline-flex items-center gap-1.5 rounded-full border border-primary/30 bg-primary/5 px-3 py-1.5 text-xs font-semibold text-primary transition-colors hover:bg-primary/10"
+                    >
+                      <MapPin size={13} /> Pick on map
+                    </button>
                     <div className="flex gap-2 pt-1">
                       <Button
                         type="button"
@@ -491,6 +560,16 @@ export default function CartDrawer({
                       <MapPin size={15} className="shrink-0 text-primary" />
                       <span className="truncate">{userAddress}</span>
                     </p>
+                    {/* The exact point sent with the order, so there is no doubt
+                        where the professional is being sent. */}
+                    {coords && (
+                      <MapPreview
+                        lat={coords.lat}
+                        lng={coords.lng}
+                        label={userAddress}
+                        height={120}
+                      />
+                    )}
                   </div>
                 )}
               </div>
@@ -596,25 +675,44 @@ export default function CartDrawer({
 
             {/* Confirm Payment */}
             <div className="shrink-0 border-t p-4">
-              {orderError && (
-                <p className="mb-2 text-center text-xs font-semibold text-destructive">
-                  {orderError}
+              {checkoutError && (
+                <p
+                  role="alert"
+                  className="mb-3 rounded-xl border border-destructive/30 bg-destructive/5 px-3 py-2 text-xs font-medium text-destructive"
+                >
+                  {checkoutError}
                 </p>
               )}
               <Button
                 size="lg"
-                disabled={isProcessing}
-                className="w-full rounded-xl bg-primary hover:bg-primary/90 disabled:opacity-50"
+                disabled={placing}
+                className="w-full rounded-xl bg-primary hover:bg-primary/90"
                 onClick={handleConfirm}
               >
-                {isProcessing
-                  ? 'Processing Order...'
+                {placing
+                  ? 'Placing your booking…'
                   : `Confirm Payment · ৳${payable.toLocaleString()}`}
               </Button>
             </div>
           </>
         )}
       </DrawerContent>
+
+      <LocationPicker
+        open={pickerOpen}
+        onClose={() => setPickerOpen(false)}
+        initial={
+          coords ? { id: 'current', name: userAddress, address: userAddress, ...coords } : null
+        }
+        title="Where should we come?"
+        onSelect={(next: PlaceSuggestion) => {
+          setDraftAddress(next.address);
+          setUserAddress(next.address);
+          setCoords({ lat: next.lat, lng: next.lng });
+          // Header, cart and checkout must all agree on the same point.
+          saveLocation(next);
+        }}
+      />
     </Drawer>
   );
 }

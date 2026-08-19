@@ -4,69 +4,67 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import Image from "next/image";
 import { useEffect, useState } from "react";
+import { FiChevronDown, FiMapPin, FiSearch } from "react-icons/fi";
+import { asset } from '@/app/lib/assets';
 import {
-  FiChevronDown,
-  FiCrosshair,
-  FiLoader,
-  FiMapPin,
-  FiSearch,
-} from "react-icons/fi";
+  DEFAULT_LOCATION,
+  hasPickedLocation,
+  loadLocation,
+  saveLocation,
+  type PlaceSuggestion,
+} from '@/app/lib/location';
+import { LocationPicker } from '@/app/components/LocationPicker';
 
-const locations = [
-  "Select Location",
-  "Dhaka",
-  "Chattogram",
-  "Sylhet",
-  "Khulna",
-  "Rajshahi",
-];
+// Locations come from the geocoder now, not a fixed list.
+
+const basePath = process.env.NEXT_PUBLIC_BASE_PATH ?? '';
 
 export default function HeroSection() {
-  const [location, setLocation] = useState("Select Location");
+  const [place, setPlace] = useState<PlaceSuggestion>(DEFAULT_LOCATION);
+  const location = place.name;
   const [isLocationOpen, setIsLocationOpen] = useState(false);
-  const [isLocating, setIsLocating] = useState(false);
-  const [locationError, setLocationError] = useState<string | null>(null);
+  const [term, setTerm] = useState('');
+  // Every route into the search bar should confirm where the service is going,
+  // but only until a location is actually chosen — otherwise the modal would
+  // reopen on every keystroke and make the service search unusable.
+  const [locationConfirmed, setLocationConfirmed] = useState(true);
 
-  // Auto-dismiss the location error message after a few seconds.
+  // Restore the visitor's previous choice; defaults to Green Road, Dhaka.
   useEffect(() => {
-    if (!locationError) return;
-    const timer = setTimeout(() => setLocationError(null), 5000);
-    return () => clearTimeout(timer);
-  }, [locationError]);
+    setPlace(loadLocation());
+    setLocationConfirmed(hasPickedLocation());
+  }, []);
 
-  const handleUseCurrentLocation = () => {
-    setIsLocationOpen(false);
-    setLocationError(null);
-
-    if (!("geolocation" in navigator)) {
-      setLocationError("Geolocation is not supported by your browser.");
-      return;
-    }
-
-    setIsLocating(true);
-    navigator.geolocation.getCurrentPosition(
-      () => {
-        setLocation("Current Location");
-        setIsLocating(false);
-      },
-      (err) => {
-        setIsLocating(false);
-        setLocationError(
-          err.code === err.PERMISSION_DENIED
-            ? "Location permission denied. Please allow access to use your current location."
-            : "Unable to get your location. Please try again.",
-        );
-      },
-      { enableHighAccuracy: false, timeout: 10000, maximumAge: 60000 },
-    );
+  const runSearch = () => {
+    const q = term.trim();
+    window.location.href = q
+      ? `${basePath}/services?search=${encodeURIComponent(q)}`
+      : `${basePath}/services`;
   };
+
+  /** Ask for the location first when the visitor has not set one yet. */
+  const ensureLocation = () => {
+    if (locationConfirmed) return false;
+    setIsLocationOpen(true);
+    return true;
+  };
+
+
+  const choosePlace = (next: PlaceSuggestion) => {
+    setPlace(next);
+    saveLocation(next);
+    setLocationConfirmed(true);
+    setIsLocationOpen(false);
+  };
+
+
 
   return (
     <section className="relative w-full bg-primary">
       {/* Banner image — headline & subtitle are baked into the artwork */}
       <div className="relative h-[360px] w-full overflow-hidden sm:h-[480px] lg:h-auto lg:aspect-[1920/666]">
         <Image
-          src="/banner_hero.png"
+          src={asset('/banner_hero.png')}
           alt="Expert Services, One tap away. Making everyday home services faster, easier, and more reliable with skilled professionals just a tap away."
           fill
           priority
@@ -86,57 +84,17 @@ export default function HeroSection() {
             <button
               type="button"
               onClick={() => setIsLocationOpen(!isLocationOpen)}
+              // The label below is hidden on phones, which would leave this
+              // button an unlabelled pin icon for screen readers and tests.
+              aria-label={`Change location — currently ${location}`}
+              aria-expanded={isLocationOpen}
               className="flex h-12 items-center gap-2 rounded-xl bg-primary/5 px-3 text-sm font-medium text-foreground transition-colors hover:bg-primary/10 sm:px-4"
             >
               <FiMapPin size={16} className="shrink-0 text-primary" />
               <span className="hidden sm:inline">{location}</span>
-              {isLocating ? (
-                <FiLoader
-                  size={14}
-                  className="shrink-0 animate-spin text-primary"
-                />
-              ) : (
-                <FiChevronDown
-                  size={14}
-                  className="shrink-0 text-muted-foreground"
-                />
-              )}
+              <FiChevronDown size={14} className="shrink-0 text-muted-foreground" />
             </button>
 
-            {isLocationOpen && (
-              <div className="absolute left-0 top-full z-30 mt-2 w-52 overflow-hidden rounded-xl border border-border bg-white shadow-xl">
-                <button
-                  type="button"
-                  onClick={handleUseCurrentLocation}
-                  disabled={isLocating}
-                  className="flex w-full items-center gap-2 px-4 py-2.5 text-left text-sm font-medium text-primary transition-colors hover:bg-primary/10 disabled:cursor-not-allowed disabled:opacity-50"
-                >
-                  {isLocating ? (
-                    <FiLoader size={14} className="shrink-0 animate-spin" />
-                  ) : (
-                    <FiCrosshair size={14} className="shrink-0" />
-                  )}
-                  {isLocating ? "Locating…" : "Use Current Location"}
-                </button>
-                <div className="h-px bg-border" />
-                {locations.map((loc) => (
-                  <button
-                    key={loc}
-                    onClick={() => {
-                      setLocation(loc);
-                      setIsLocationOpen(false);
-                    }}
-                    className={`block w-full px-4 py-2.5 text-left text-sm transition-colors hover:bg-primary/10 ${
-                      location === loc
-                        ? "font-semibold text-primary"
-                        : "text-foreground"
-                    }`}
-                  >
-                    {loc}
-                  </button>
-                ))}
-              </div>
-            )}
           </div>
 
           <div className="h-7 w-px shrink-0 bg-border" />
@@ -144,7 +102,18 @@ export default function HeroSection() {
           {/* Search Box */}
           <Input
             type="text"
+            value={term}
             placeholder="Search for Services"
+            onFocus={ensureLocation}
+            onChange={(e) => {
+              if (ensureLocation()) return;
+              setTerm(e.target.value);
+            }}
+            onKeyDown={(e) => {
+              if (e.key !== 'Enter') return;
+              if (ensureLocation()) return;
+              runSearch();
+            }}
             className="h-12 min-w-0 flex-1 border-0 bg-transparent px-2 text-sm shadow-none placeholder:text-muted-foreground focus-visible:ring-0 sm:px-3"
           />
 
@@ -152,22 +121,24 @@ export default function HeroSection() {
           <Button
             size="icon-lg"
             aria-label="Search"
+            onClick={() => {
+              if (ensureLocation()) return;
+              runSearch();
+            }}
             className="h-12 w-12 shrink-0 rounded-xl bg-primary shadow-lg shadow-primary/40 hover:bg-primary/90"
           >
             <FiSearch size={18} />
           </Button>
 
-          {/* Location error message */}
-          {locationError && (
-            <p
-              role="status"
-              className="absolute top-full left-1/2 mt-2 w-max max-w-[90vw] -translate-x-1/2 rounded-lg bg-red-50 px-3 py-1.5 text-xs font-medium text-red-600 shadow-sm"
-            >
-              {locationError}
-            </p>
-          )}
         </div>
       </div>
+      <LocationPicker
+        open={isLocationOpen}
+        onClose={() => setIsLocationOpen(false)}
+        initial={place}
+        title="Where do you need the service?"
+        onSelect={choosePlace}
+      />
     </section>
   );
 }

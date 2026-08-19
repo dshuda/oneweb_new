@@ -1,324 +1,352 @@
+using System.Globalization;
+using System.Security.Cryptography;
+using System.Text;
 using System.Text.Json;
-using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
-using OneWeb.Domain.Entities;
+using Microsoft.Extensions.Options;
 using OneWeb.Domain.Interfaces;
-using OneWeb.Infrastructure.Persistence;
+using OneWeb.Domain.Payments;
 
 namespace OneWeb.Infrastructure.Services;
 
+/// <summary>
+/// SSLCommerz hosted-checkout client.
+///
+/// Endpoint quirks that are easy to get wrong:
+///  - Session init is POST form-encoded, and its path is version-specific (v3/v4).
+///  - Validation, transaction query and refund are GET. Calling them with POST
+///    returns HTTP 500.
+///  - Response field casing is inconsistent (GatewayPageURL vs gatewayPageURL,
+///    sessionkey vs sessionKey), so reads go through a case-tolerant lookup.
+/// </summary>
 public class SslCommerzService : ISslCommerzService
 {
     private readonly HttpClient _httpClient;
-    private readonly AppDbContext _dbContext;
-    private readonly IConfiguration _configuration;
+    private readonly SslCommerzOptions _options;
     private readonly ILogger<SslCommerzService> _logger;
-
-    private readonly string _storeId;
-    private readonly string _storePassword;
-    private readonly string _apiBaseUrl;
-    private readonly string _validationBaseUrl;
-    private readonly string _currency;
 
     public SslCommerzService(
         HttpClient httpClient,
-        AppDbContext dbContext,
-        IConfiguration configuration,
+        IOptions<SslCommerzOptions> options,
         ILogger<SslCommerzService> logger)
     {
         _httpClient = httpClient;
-        _dbContext = dbContext;
-        _configuration = configuration;
+        _options = options.Value;
         _logger = logger;
 
-        _storeId = _configuration["SslCommerz:StoreId"] 
-            ?? Environment.GetEnvironmentVariable("SSLCOMMERZ_STORE_ID") 
-            ?? "labai69d4e6bc24ef7";
-
-        _storePassword = _configuration["SslCommerz:StorePassword"] 
-            ?? Environment.GetEnvironmentVariable("SSLCOMMERZ_STORE_PASSWORD") 
-            ?? "labai69d4e6bc24ef7@ssl";
-
-        _apiBaseUrl = _configuration["SslCommerz:ApiBaseUrl"] 
-            ?? Environment.GetEnvironmentVariable("SSLCOMMERZ_API_BASE_URL") 
-            ?? "https://sandbox.sslcommerz.com";
-
-        _validationBaseUrl = _configuration["SslCommerz:ValidationBaseUrl"] 
-            ?? Environment.GetEnvironmentVariable("SSLCOMMERZ_VALIDATION_BASE_URL") 
-            ?? "https://sandbox.sslcommerz.com";
-
-        _currency = _configuration["SslCommerz:Currency"] 
-            ?? Environment.GetEnvironmentVariable("SSLCOMMERZ_CURRENCY") 
-            ?? "BDT";
+        if (_options.TimeoutSeconds > 0)
+            _httpClient.Timeout = TimeSpan.FromSeconds(_options.TimeoutSeconds);
     }
 
-    public async Task<SslCommerzInitResult> InitiatePaymentAsync(long orderId, long userId, string? customCallbackBaseUrl = null)
+    public async Task<SslCommerzSessionResult> InitiateSessionAsync(
+        SslCommerzSessionRequest request, CancellationToken cancellationToken = default)
     {
-        var order = await _dbContext.Orders
-            .Include(o => o.User)
-            .Include(o => o.Service)
-            .FirstOrDefaultAsync(o => o.Id == orderId && o.UserId == userId);
+        if (!_options.IsConfigured)
+            return new SslCommerzSessionResult(false, null, null, null, null, "SSLCommerz is not configured");
 
-        if (order == null)
-            return new SslCommerzInitResult(false, null, null, null, "Order not found");
+        // Configured PublicBaseUrl wins (proxy/tunnel); otherwise the caller
+        // passes the address the request actually arrived on.
+        var callbackBase = (string.IsNullOrWhiteSpace(_options.PublicBaseUrl)
+            ? request.CallbackBaseUrl
+            : _options.PublicBaseUrl).TrimEnd('/');
 
-        var amount = order.GrandTotal ?? 0;
-        if (amount <= 0)
-            return new SslCommerzInitResult(false, null, null, null, "Invalid order amount");
-
-        var tranId = $"OT_{orderId}_{DateTimeOffset.UtcNow.ToUnixTimeSeconds()}";
-        
-        // Base callback URL (must be public)
-        var callbackBase = (!string.IsNullOrEmpty(customCallbackBaseUrl) && !customCallbackBaseUrl.Contains("127.0.0.1") && !customCallbackBaseUrl.Contains("localhost"))
-            ? customCallbackBaseUrl.TrimEnd('/')
-            : (_configuration["PublicBaseUrl"] ?? _configuration["FrontendUrl"]?.Replace("/web", "") ?? "http://104.248.232.169");
-
-        var postData = new Dictionary<string, string>
+        var form = new Dictionary<string, string>
         {
-            { "store_id", _storeId },
-            { "store_passwd", _storePassword },
-            { "total_amount", amount.ToString("F2") },
-            { "currency", _currency },
-            { "tran_id", tranId },
-            { "success_url", $"{callbackBase}/api/v1/sslcommerz/success" },
-            { "fail_url", $"{callbackBase}/api/v1/sslcommerz/fail" },
-            { "cancel_url", $"{callbackBase}/api/v1/sslcommerz/cancel" },
-            { "ipn_url", $"{callbackBase}/api/v1/sslcommerz/ipn" },
-
-            // Customer info
-            { "cus_name", string.IsNullOrWhiteSpace(order.User?.Name) ? "OneTap Customer" : order.User.Name },
-            { "cus_email", string.IsNullOrWhiteSpace(order.User?.Email) ? "customer@onetap.com.bd" : order.User.Email },
-            { "cus_add1", string.IsNullOrWhiteSpace(order.ShippingAddress) ? "Dhaka" : order.ShippingAddress },
-            { "cus_city", "Dhaka" },
-            { "cus_postcode", "1200" },
-            { "cus_country", "Bangladesh" },
-            { "cus_phone", string.IsNullOrWhiteSpace(order.User?.Phone) ? "01700000000" : order.User.Phone },
-
-            // Product & shipment info
-            { "shipping_method", "NO" },
-            { "product_name", string.IsNullOrWhiteSpace(order.Service?.Name) ? "OneTap Home Service" : order.Service.Name },
-            { "product_category", "Service" },
-            { "product_profile", "general" },
-            
-            // Custom values to correlate
-            { "value_a", orderId.ToString() },
-            { "value_b", userId.ToString() }
+            ["store_id"] = _options.StoreId,
+            ["store_passwd"] = _options.StorePassword,
+            ["total_amount"] = FormatMoney(request.Amount),
+            ["currency"] = _options.Currency,
+            ["tran_id"] = request.TransactionId,
+            ["success_url"] = $"{callbackBase}/api/v1/payments/sslcommerz/success",
+            ["fail_url"] = $"{callbackBase}/api/v1/payments/sslcommerz/fail",
+            ["cancel_url"] = $"{callbackBase}/api/v1/payments/sslcommerz/cancel",
+            ["ipn_url"] = $"{callbackBase}/api/v1/payments/sslcommerz/ipn",
+            ["cus_name"] = Fallback(request.CustomerName, "OneTap Customer"),
+            ["cus_email"] = Fallback(request.CustomerEmail, "noreply@onetapservice.com"),
+            ["cus_phone"] = request.CustomerPhone,
+            ["cus_add1"] = Fallback(request.CustomerAddress, "N/A"),
+            ["cus_city"] = Fallback(request.CustomerCity, "Dhaka"),
+            ["cus_postcode"] = Fallback(request.CustomerPostcode, "1000"),
+            ["cus_country"] = "Bangladesh",
+            ["shipping_method"] = "NO",
+            ["product_name"] = Fallback(request.ProductName, "Service booking"),
+            ["product_category"] = Fallback(request.ProductCategory, "Service"),
+            ["product_profile"] = "general",
+            // value_a..value_d are echoed back on every callback.
+            ["value_a"] = request.OrderId.ToString(CultureInfo.InvariantCulture),
+            ["value_b"] = request.UserId.ToString(CultureInfo.InvariantCulture),
+            ["value_c"] = request.TransactionId
         };
 
         try
         {
-            var initUrl = $"{_apiBaseUrl.TrimEnd('/')}/gwprocess/v4/api.php";
-            var formContent = new FormUrlEncodedContent(postData);
-            
-            var response = await _httpClient.PostAsync(initUrl, formContent);
-            var responseString = await response.Content.ReadAsStringAsync();
+            var payload = await PostFormAsync(_options.SessionEndpoint, form, cancellationToken);
+            var status = Read(payload, "status");
 
-            _logger.LogInformation("SSLCommerz Init Response: {Response}", responseString);
-
-            using var doc = JsonDocument.Parse(responseString);
-            var root = doc.RootElement;
-
-            var status = root.TryGetProperty("status", out var s) ? s.GetString() : null;
-            if (string.Equals(status, "SUCCESS", StringComparison.OrdinalIgnoreCase))
+            if (!LooksSuccessful(status))
             {
-                var gatewayUrl = root.TryGetProperty("GatewayPageURL", out var g) ? g.GetString() : null;
-                var sessionKey = root.TryGetProperty("sessionkey", out var sk) ? sk.GetString() : null;
-
-                // Track initial pending payment
-                var payment = await _dbContext.Payments.FirstOrDefaultAsync(p => p.OrderId == orderId);
-                if (payment == null)
-                {
-                    payment = new Payment
-                    {
-                        OrderId = orderId,
-                        UserId = userId,
-                        Amount = amount,
-                        PaymentMethod = "sslcommerz",
-                        Status = "pending",
-                        TransactionId = tranId,
-                        CreatedAt = DateTime.UtcNow,
-                        UpdatedAt = DateTime.UtcNow
-                    };
-                    _dbContext.Payments.Add(payment);
-                }
-                else
-                {
-                    payment.Amount = amount;
-                    payment.PaymentMethod = "sslcommerz";
-                    payment.Status = "pending";
-                    payment.TransactionId = tranId;
-                    payment.UpdatedAt = DateTime.UtcNow;
-                }
-
-                order.PaymentType = "sslcommerz";
-                order.PaymentStatus = "unpaid";
-                await _dbContext.SaveChangesAsync();
-
-                return new SslCommerzInitResult(true, gatewayUrl, sessionKey, tranId, "Payment session initiated");
+                var reason = Read(payload, "failedreason") ?? Read(payload, "failed_reason") ?? status;
+                _logger.LogError(
+                    "SSLCommerz session init failed for tran {TranId}: {Reason}",
+                    request.TransactionId, reason);
+                return new SslCommerzSessionResult(false, null, null, request.TransactionId, status, reason);
             }
-            else
-            {
-                var failedReason = root.TryGetProperty("failedreason", out var fr) ? fr.GetString() : "SSLCommerz initiation failed";
-                _logger.LogWarning("SSLCommerz initiation failed: {Reason}", failedReason);
-                return new SslCommerzInitResult(false, null, null, tranId, failedReason);
-            }
+
+            var gatewayUrl = Read(payload, "GatewayPageURL") ?? Read(payload, "gatewayPageURL");
+            if (string.IsNullOrWhiteSpace(gatewayUrl))
+                return new SslCommerzSessionResult(false, null, null, request.TransactionId, status, "Gateway returned no redirect URL");
+
+            return new SslCommerzSessionResult(
+                true,
+                gatewayUrl,
+                Read(payload, "sessionkey") ?? Read(payload, "sessionKey"),
+                request.TransactionId,
+                status,
+                "Session created");
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error initiating SSLCommerz payment for order {OrderId}", orderId);
-            return new SslCommerzInitResult(false, null, null, tranId, ex.Message);
+            _logger.LogError(ex, "SSLCommerz session init threw for tran {TranId}", request.TransactionId);
+            return new SslCommerzSessionResult(false, null, null, request.TransactionId, null, ex.Message);
         }
     }
 
-    public async Task<SslCommerzValidationResult> ValidatePaymentAsync(string valId, string tranId, double? expectedAmount = null)
+    public async Task<SslCommerzValidationResult> ValidatePaymentAsync(
+        string validationId, CancellationToken cancellationToken = default)
     {
-        if (string.IsNullOrEmpty(valId))
-            return new SslCommerzValidationResult(false, "FAILED", tranId, valId, 0, null, null, "Validation ID is empty");
+        if (string.IsNullOrWhiteSpace(validationId))
+            return Invalid("A validation id (val_id) is required");
+
+        var query = new Dictionary<string, string>
+        {
+            ["val_id"] = validationId,
+            ["store_id"] = _options.StoreId,
+            ["store_passwd"] = _options.StorePassword,
+            ["v"] = "1",
+            ["format"] = "json"
+        };
 
         try
         {
-            var validatorUrl = $"{_validationBaseUrl.TrimEnd('/')}/validator/api/validationserverAPI.php?val_id={Uri.EscapeDataString(valId)}&store_id={Uri.EscapeDataString(_storeId)}&store_passwd={Uri.EscapeDataString(_storePassword)}&format=json";
-
-            var response = await _httpClient.GetAsync(validatorUrl);
-            var responseString = await response.Content.ReadAsStringAsync();
-
-            _logger.LogInformation("SSLCommerz Validation Response: {Response}", responseString);
-
-            using var doc = JsonDocument.Parse(responseString);
-            var root = doc.RootElement;
-
-            var status = root.TryGetProperty("status", out var s) ? s.GetString() : null;
-            var isValid = string.Equals(status, "VALID", StringComparison.OrdinalIgnoreCase) ||
-                          string.Equals(status, "VALIDATED", StringComparison.OrdinalIgnoreCase);
-
-            double parsedAmount = 0;
-            if (root.TryGetProperty("amount", out var amtProp))
-            {
-                if (amtProp.ValueKind == JsonValueKind.Number)
-                    parsedAmount = amtProp.GetDouble();
-                else if (amtProp.ValueKind == JsonValueKind.String && double.TryParse(amtProp.GetString(), out var a))
-                    parsedAmount = a;
-            }
-
-            var bankTranId = root.TryGetProperty("bank_tran_id", out var bti) ? bti.GetString() : null;
-            var cardType = root.TryGetProperty("card_type", out var ct) ? ct.GetString() : null;
-
-            if (isValid && expectedAmount.HasValue && Math.Abs(parsedAmount - expectedAmount.Value) > 0.01)
-            {
-                _logger.LogWarning("SSLCommerz amount mismatch: expected {Expected}, got {Actual}", expectedAmount.Value, parsedAmount);
-                return new SslCommerzValidationResult(false, "AMOUNT_MISMATCH", tranId, valId, parsedAmount, bankTranId, cardType, "Amount does not match order total");
-            }
-
-            return new SslCommerzValidationResult(isValid, status, tranId, valId, parsedAmount, bankTranId, cardType, isValid ? "Payment valid" : "Payment invalid");
+            // GET, not POST — the validation endpoint 500s on POST.
+            var payload = await GetFormAsync(_options.ValidationEndpoint, query, cancellationToken);
+            return FromPayload(payload);
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error validating SSLCommerz payment for val_id {ValId}", valId);
-            return new SslCommerzValidationResult(false, "ERROR", tranId, valId, 0, null, null, ex.Message);
+            _logger.LogError(ex, "SSLCommerz validation threw for val_id {ValId}", validationId);
+            return Invalid(ex.Message);
         }
     }
 
-    public async Task<bool> ProcessPaymentSuccessAsync(string valId, string tranId, double amount, string? cardType, string? bankTranId)
+    public async Task<SslCommerzValidationResult> QueryTransactionAsync(
+        string? transactionId, string? sessionKey, CancellationToken cancellationToken = default)
     {
-        // Extract order ID from transaction ID (e.g. OT_123_...)
-        long orderId = 0;
-        var parts = tranId.Split('_');
-        if (parts.Length >= 2 && long.TryParse(parts[1], out var parsedId))
+        if (string.IsNullOrWhiteSpace(transactionId) && string.IsNullOrWhiteSpace(sessionKey))
+            return Invalid("A transaction id or session key is required");
+
+        var query = new Dictionary<string, string>
         {
-            orderId = parsedId;
+            ["store_id"] = _options.StoreId,
+            ["store_passwd"] = _options.StorePassword,
+            ["v"] = "1",
+            ["format"] = "json"
+        };
+        if (!string.IsNullOrWhiteSpace(transactionId)) query["tran_id"] = transactionId!;
+        if (!string.IsNullOrWhiteSpace(sessionKey)) query["sessionkey"] = sessionKey!;
+
+        try
+        {
+            var payload = await GetFormAsync(_options.TransactionQueryEndpoint, query, cancellationToken);
+            return FromPayload(payload);
         }
-
-        var order = await _dbContext.Orders
-            .FirstOrDefaultAsync(o => o.Id == orderId || (o.Payment != null && o.Payment.TransactionId == tranId));
-
-        if (order == null)
+        catch (Exception ex)
         {
-            _logger.LogWarning("Order not found for transaction {TranId}", tranId);
+            _logger.LogError(ex, "SSLCommerz query threw for tran {TranId}", transactionId);
+            return Invalid(ex.Message);
+        }
+    }
+
+    public async Task<SslCommerzRefundResult> RefundAsync(
+        string bankTransactionId, double amount, string? reason, CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(bankTransactionId))
+            return new SslCommerzRefundResult(false, "FAILED", null, "A bank transaction id is required");
+
+        // Field is "refe_id", not "refund_trans_id" — and this endpoint is GET too.
+        var query = new Dictionary<string, string>
+        {
+            ["bank_tran_id"] = bankTransactionId,
+            ["refe_id"] = Guid.NewGuid().ToString("N"),
+            ["refund_amount"] = FormatMoney(amount),
+            ["refund_remarks"] = Fallback(reason, "Refund initiated"),
+            ["store_id"] = _options.StoreId,
+            ["store_passwd"] = _options.StorePassword,
+            ["v"] = "1",
+            ["format"] = "json"
+        };
+
+        try
+        {
+            var payload = await GetFormAsync(_options.RefundEndpoint, query, cancellationToken);
+            var status = (Read(payload, "status") ?? string.Empty).ToUpperInvariant();
+            return new SslCommerzRefundResult(
+                LooksSuccessful(status),
+                status,
+                Read(payload, "refund_ref_id"),
+                Read(payload, "errorReason") ?? Read(payload, "status"));
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "SSLCommerz refund threw for bank tran {BankTranId}", bankTransactionId);
+            return new SslCommerzRefundResult(false, "FAILED", null, ex.Message);
+        }
+    }
+
+    /// <summary>
+    /// SSLCommerz signs genuine IPN payloads with an MD5 hash:
+    ///   1. verify_key lists the POST fields that take part
+    ///   2. MD5(store password) is added as a synthetic "store_passwd" field
+    ///   3. fields are sorted by key and joined as "k=v&amp;k2=v2"
+    ///   4. MD5 of that string must equal verify_sign
+    /// Only the fields named in verify_key participate — hashing every POST
+    /// field makes real callbacks fail.
+    /// </summary>
+    public bool VerifyIpnSignature(IReadOnlyDictionary<string, string> formFields)
+    {
+        if (!formFields.TryGetValue("verify_sign", out var receivedSign) || string.IsNullOrWhiteSpace(receivedSign))
+        {
+            _logger.LogWarning("SSLCommerz IPN rejected: verify_sign missing");
             return false;
         }
 
-        order.PaymentStatus = "paid";
-        order.DeliveryStatus = order.DeliveryStatus == "pending" ? "confirmed" : order.DeliveryStatus;
-        order.PaymentType = "sslcommerz";
-        order.PaymentDetails = JsonSerializer.Serialize(new
+        if (!formFields.TryGetValue("verify_key", out var verifyKey) || string.IsNullOrWhiteSpace(verifyKey))
         {
-            val_id = valId,
-            bank_tran_id = bankTranId,
-            card_type = cardType,
-            paid_amount = amount,
-            paid_at = DateTime.UtcNow
-        });
-
-        var payment = await _dbContext.Payments.FirstOrDefaultAsync(p => p.OrderId == order.Id);
-        if (payment != null)
-        {
-            payment.Status = "completed";
-            payment.Amount = amount;
-            payment.TransactionId = bankTranId ?? tranId;
-            payment.PaymentMethod = "sslcommerz";
-            payment.UpdatedAt = DateTime.UtcNow;
+            _logger.LogWarning("SSLCommerz IPN rejected: verify_key missing");
+            return false;
         }
-        else
+
+        var fields = new Dictionary<string, string>(StringComparer.Ordinal)
         {
-            payment = new Payment
+            ["store_passwd"] = Md5Hex(_options.StorePassword)
+        };
+
+        foreach (var rawKey in verifyKey.Split(',', StringSplitOptions.RemoveEmptyEntries))
+        {
+            var key = rawKey.Trim();
+            if (key.Length == 0) continue;
+            if (formFields.TryGetValue(key, out var value) && !string.IsNullOrWhiteSpace(value))
+                fields[key] = value.Trim();
+        }
+
+        var canonical = string.Join(
+            "&",
+            fields.OrderBy(pair => pair.Key, StringComparer.Ordinal)
+                  .Select(pair => $"{pair.Key}={pair.Value}"));
+
+        var computed = Md5Hex(canonical);
+        if (!string.Equals(computed, receivedSign.Trim(), StringComparison.OrdinalIgnoreCase))
+        {
+            _logger.LogWarning(
+                "SSLCommerz IPN signature mismatch: computed={Computed} received={Received}",
+                computed, receivedSign);
+            return false;
+        }
+
+        return true;
+    }
+
+    /* ------------------------------------------------------------ transport -- */
+
+    private async Task<Dictionary<string, string>> PostFormAsync(
+        string endpoint, Dictionary<string, string> values, CancellationToken cancellationToken)
+    {
+        using var content = new FormUrlEncodedContent(values);
+        using var response = await _httpClient.PostAsync(endpoint, content, cancellationToken);
+        return await ReadPayloadAsync(response, cancellationToken);
+    }
+
+    private async Task<Dictionary<string, string>> GetFormAsync(
+        string endpoint, Dictionary<string, string> values, CancellationToken cancellationToken)
+    {
+        using var query = new FormUrlEncodedContent(values);
+        var queryString = await query.ReadAsStringAsync(cancellationToken);
+        using var response = await _httpClient.GetAsync($"{endpoint}?{queryString}", cancellationToken);
+        return await ReadPayloadAsync(response, cancellationToken);
+    }
+
+    private static async Task<Dictionary<string, string>> ReadPayloadAsync(
+        HttpResponseMessage response, CancellationToken cancellationToken)
+    {
+        var body = await response.Content.ReadAsStringAsync(cancellationToken);
+
+        if (!response.IsSuccessStatusCode)
+            throw new HttpRequestException($"SSLCommerz returned HTTP {(int)response.StatusCode}: {Trim(body)}");
+
+        using var document = JsonDocument.Parse(body);
+        var result = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+
+        if (document.RootElement.ValueKind != JsonValueKind.Object)
+            return result;
+
+        foreach (var property in document.RootElement.EnumerateObject())
+        {
+            result[property.Name] = property.Value.ValueKind switch
             {
-                OrderId = order.Id,
-                UserId = order.UserId,
-                Amount = amount,
-                PaymentMethod = "sslcommerz",
-                Status = "completed",
-                TransactionId = bankTranId ?? tranId,
-                CreatedAt = DateTime.UtcNow,
-                UpdatedAt = DateTime.UtcNow
+                JsonValueKind.String => property.Value.GetString() ?? string.Empty,
+                JsonValueKind.Null or JsonValueKind.Undefined => string.Empty,
+                _ => property.Value.ToString()
             };
-            _dbContext.Payments.Add(payment);
         }
 
-        await _dbContext.SaveChangesAsync();
-        _logger.LogInformation("Order {OrderId} marked as paid via SSLCommerz (TranId: {TranId})", order.Id, tranId);
-        return true;
+        return result;
     }
 
-    public async Task<bool> ProcessPaymentFailAsync(string tranId, string? errorReason)
+    /* -------------------------------------------------------------- helpers -- */
+
+    private static SslCommerzValidationResult FromPayload(Dictionary<string, string> payload)
     {
-        long orderId = 0;
-        var parts = tranId.Split('_');
-        if (parts.Length >= 2 && long.TryParse(parts[1], out var parsedId))
-        {
-            orderId = parsedId;
-        }
+        var status = (Read(payload, "status") ?? string.Empty).ToUpperInvariant();
 
-        var payment = await _dbContext.Payments.FirstOrDefaultAsync(p => p.TransactionId == tranId || p.OrderId == orderId);
-        if (payment != null)
-        {
-            payment.Status = "failed";
-            payment.UpdatedAt = DateTime.UtcNow;
-            await _dbContext.SaveChangesAsync();
-        }
-
-        _logger.LogWarning("Payment failed for tranId {TranId}: {Reason}", tranId, errorReason);
-        return true;
+        return new SslCommerzValidationResult(
+            Success: !string.IsNullOrEmpty(status),
+            Status: status,
+            TransactionId: Read(payload, "tran_id") ?? Read(payload, "transaction_id"),
+            ValidationId: Read(payload, "val_id") ?? Read(payload, "validation_id"),
+            BankTransactionId: Read(payload, "bank_tran_id"),
+            Amount: ParseMoney(Read(payload, "amount")),
+            Currency: Read(payload, "currency"),
+            CardType: Read(payload, "card_type"),
+            CardIssuer: Read(payload, "card_issuer"),
+            RiskLevel: Read(payload, "risk_level"),
+            Message: Read(payload, "error") ?? Read(payload, "status"));
     }
 
-    public async Task<bool> ProcessPaymentCancelAsync(string tranId)
-    {
-        long orderId = 0;
-        var parts = tranId.Split('_');
-        if (parts.Length >= 2 && long.TryParse(parts[1], out var parsedId))
-        {
-            orderId = parsedId;
-        }
+    private static SslCommerzValidationResult Invalid(string message) =>
+        new(false, "FAILED", null, null, null, null, null, null, null, null, message);
 
-        var payment = await _dbContext.Payments.FirstOrDefaultAsync(p => p.TransactionId == tranId || p.OrderId == orderId);
-        if (payment != null)
-        {
-            payment.Status = "cancelled";
-            payment.UpdatedAt = DateTime.UtcNow;
-            await _dbContext.SaveChangesAsync();
-        }
+    private static string? Read(Dictionary<string, string> payload, string key) =>
+        payload.TryGetValue(key, out var value) && !string.IsNullOrWhiteSpace(value) ? value : null;
 
-        _logger.LogInformation("Payment cancelled for tranId {TranId}", tranId);
-        return true;
-    }
+    private static bool LooksSuccessful(string? status) =>
+        status?.Trim().ToUpperInvariant() switch
+        {
+            "SUCCESS" or "VALID" or "VALIDATED" or "INITIATED" => true,
+            _ => false
+        };
+
+    private static double? ParseMoney(string? value) =>
+        double.TryParse(value, NumberStyles.Any, CultureInfo.InvariantCulture, out var parsed) ? parsed : null;
+
+    private static string FormatMoney(double value) =>
+        value.ToString("F2", CultureInfo.InvariantCulture);
+
+    private static string Fallback(string? value, string fallback) =>
+        string.IsNullOrWhiteSpace(value) ? fallback : value;
+
+    private static string Md5Hex(string input) =>
+        Convert.ToHexString(MD5.HashData(Encoding.UTF8.GetBytes(input))).ToLowerInvariant();
+
+    private static string Trim(string body) =>
+        body.Length <= 200 ? body : body[..200];
 }

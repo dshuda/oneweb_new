@@ -2,6 +2,7 @@
 
 import Image from "next/image";
 import { CATEGORY_HERO_BANNER } from "@/app/data/services";
+import { asset } from "@/app/lib/assets";
 
 interface CategoryHeroProps {
   name: string;
@@ -25,7 +26,7 @@ export default function CategoryHero({
       {/* Banner photo — faint backdrop on mobile, right side on desktop */}
       <div className="absolute inset-0 sm:inset-y-0 sm:left-auto sm:right-0 sm:w-[58%]">
         <Image
-          src={CATEGORY_HERO_BANNER}
+          src={asset(CATEGORY_HERO_BANNER)}
           alt=""
           fill
           priority

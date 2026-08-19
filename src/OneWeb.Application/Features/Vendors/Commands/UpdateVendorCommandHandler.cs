@@ -8,6 +8,10 @@ namespace OneWeb.Application.Features.Vendors.Commands;
 public record UpdateVendorCommand : IRequest<long>
 {
     public long Id { get; set; }
+    public string? UserName { get; set; }
+    public string? Name { get; set; }
+    public string? Phone { get; set; }
+    public string? Email { get; set; }
     public long[]? ServiceIds { get; set; }
     public double CommissionRate { get; set; } = 0;
     public string? Type { get; set; }
@@ -30,7 +34,7 @@ public record UpdateVendorCommand : IRequest<long>
     public string? TradeLicense { get; set; }
     public string? AcademicCertificate { get; set; }
     public string? WorkExperience { get; set; }
-    public bool Status { get; set; } 
+    public bool Status { get; set; } = true;
 }
 public class UpdateVendorCommandHandler : IRequestHandler<UpdateVendorCommand, long>
 {
@@ -43,13 +47,26 @@ public class UpdateVendorCommandHandler : IRequestHandler<UpdateVendorCommand, l
 
     public async Task<long> Handle(UpdateVendorCommand request, CancellationToken cancellationToken)
     {
-        // Check if vendor already exists for userId
         var vendor = await _dbContext.Vendors
+            .Include(f => f.User)
             .Include(f => f.VendorServices)
             .FirstOrDefaultAsync(v => v.Id == request.Id, cancellationToken);
 
         if (vendor == null)
             return 0;
+
+        // Update User info if changed
+        if (vendor.User != null)
+        {
+            var vendorName = !string.IsNullOrWhiteSpace(request.UserName)
+                ? request.UserName.Trim()
+                : (!string.IsNullOrWhiteSpace(request.Name) ? request.Name.Trim() : vendor.User.Name);
+
+            vendor.User.Name = vendorName;
+            if (!string.IsNullOrWhiteSpace(request.Phone)) vendor.User.Phone = request.Phone.Trim();
+            if (!string.IsNullOrWhiteSpace(request.Email)) vendor.User.Email = request.Email.Trim();
+            vendor.User.UpdatedAt = DateTime.UtcNow;
+        }
 
         // Update Vendor
         vendor.BankName = request.BankName;
@@ -64,7 +81,7 @@ public class UpdateVendorCommandHandler : IRequestHandler<UpdateVendorCommand, l
         
         vendor.Nid = request.Nid;
         vendor.TradeLicense = request.TradeLicense;
-        vendor.Status = true;
+        vendor.Status = request.Status;
         vendor.CommissionRate = request.CommissionRate;
         vendor.UpdatedAt = DateTime.UtcNow;
 
@@ -95,7 +112,6 @@ public class UpdateVendorCommandHandler : IRequestHandler<UpdateVendorCommand, l
             });
 
         await _dbContext.VendorServices.AddRangeAsync(servicesToAdd, cancellationToken);
-
 
         await _dbContext.SaveChangesAsync(cancellationToken);
         return vendor.Id;

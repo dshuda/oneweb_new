@@ -1,14 +1,18 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
-using OneWeb.Api.DTOs;
 using OneWeb.Infrastructure.Persistence;
 
 namespace OneWeb.Api.Controllers.Admin;
 
+/// <summary>
+/// Customers with their booking history. The users list shows every account
+/// type with no context; this answers the questions actually asked about a
+/// customer — how much have they spent, when did they last book.
+/// </summary>
 [ApiController]
 [Route("api/v1/admin/customers")]
-[Authorize]
+[Authorize(Roles = "admin,staff")]
 public class CustomersAdminController : ControllerBase
 {
     private readonly AppDbContext _dbContext;
@@ -19,108 +23,77 @@ public class CustomersAdminController : ControllerBase
     }
 
     [HttpGet]
-    public async Task<IActionResult> GetAll()
+    public async Task<IActionResult> GetCustomers()
     {
-        var users = await _dbContext.Users
-            .Where(u => u.UserType == "customer" || u.UserType == "Customer" || string.IsNullOrEmpty(u.UserType))
-            .OrderByDescending(u => u.CreatedAt)
-            .ToListAsync();
-
-        var customerIds = users.Select(u => u.Id).ToList();
-        var allOrders = await _dbContext.Orders
-            .Where(o => customerIds.Contains(o.UserId))
-            .Select(o => new { o.UserId, o.GrandTotal, o.CreatedAt })
-            .ToListAsync();
-
-        var ordersByCustomer = allOrders.GroupBy(o => o.UserId).ToDictionary(
-            g => g.Key,
-            g => new
+        // Aggregate in one grouped query rather than per-customer round trips.
+        var stats = await _dbContext.Orders
+            .GroupBy(o => o.UserId)
+            .Select(g => new
             {
-                Count = g.Count(),
-                Spent = g.Sum(o => o.GrandTotal ?? 0),
-                LastOrder = g.Max(o => (DateTime?)o.CreatedAt)
-            }
-        );
+                UserId = g.Key,
+                Orders = g.Count(),
+                Spent = g.Where(o => o.PaymentStatus == "paid").Sum(o => o.GrandTotal ?? 0),
+                LastOrderAt = g.Max(o => o.CreatedAt),
+            })
+            .ToListAsync();
 
-        var customers = users.Select(u =>
+        var byUser = stats.ToDictionary(s => s.UserId, s => s);
+
+        var customers = await _dbContext.Users
+            .Where(u => u.UserType == "customer")
+            .OrderByDescending(u => u.CreatedAt)
+            .Select(u => new
+            {
+                u.Id, u.Name, u.Phone, u.Email, u.Address,
+                u.Status, u.CreatedAt, u.ImageId,
+            })
+            .ToListAsync();
+
+        var result = customers.Select(c =>
         {
-            ordersByCustomer.TryGetValue(u.Id, out var stats);
+            byUser.TryGetValue(c.Id, out var s);
             return new
             {
-                id = u.Id,
-                name = string.IsNullOrWhiteSpace(u.Name) ? (string.IsNullOrWhiteSpace(u.Phone) ? "Customer" : u.Phone) : u.Name,
-                fullName = u.Name ?? string.Empty,
-                email = u.Email ?? string.Empty,
-                phone = u.Phone ?? string.Empty,
-                address = u.Address ?? string.Empty,
-                orders = stats?.Count ?? 0,
-                totalOrders = stats?.Count ?? 0,
-                spent = stats?.Spent ?? 0,
-                totalSpent = stats?.Spent ?? 0,
-                lastOrderAt = stats?.LastOrder,
-                createdAt = u.CreatedAt,
-                status = u.Status && !u.IsBanned
+                c.Id,
+                c.Name,
+                c.Phone,
+                c.Email,
+                c.Address,
+                c.Status,
+                c.CreatedAt,
+                c.ImageId,
+                Orders = s?.Orders ?? 0,
+                Spent = s?.Spent ?? 0,
+                LastOrderAt = s?.LastOrderAt,
             };
-        }).ToList();
+        });
 
-        return ApiResponseFactory.Ok(customers, HttpContext);
+        return Ok(result);
     }
 
-    [HttpGet("{id}")]
-    public async Task<IActionResult> GetById(long id)
+    /// <summary>A single customer with their most recent bookings.</summary>
+    [HttpGet("{id:long}")]
+    public async Task<IActionResult> GetCustomer(long id)
     {
-        var user = await _dbContext.Users
-            .FirstOrDefaultAsync(u => u.Id == id);
+        var customer = await _dbContext.Users
+            .Where(u => u.Id == id)
+            .Select(u => new { u.Id, u.Name, u.Phone, u.Email, u.Address, u.Status, u.CreatedAt })
+            .FirstOrDefaultAsync();
 
-        if (user == null)
-            return NotFound(new { message = "Customer not found" });
+        if (customer == null)
+            return NotFound();
 
         var orders = await _dbContext.Orders
-            .Include(o => o.Service)
             .Where(o => o.UserId == id)
             .OrderByDescending(o => o.CreatedAt)
+            .Take(20)
+            .Select(o => new
+            {
+                o.Id, o.TrackingCode, o.GrandTotal, o.DeliveryStatus,
+                o.PaymentStatus, o.CreatedAt, o.LocationName, o.ShippingAddress,
+            })
             .ToListAsync();
 
-        var totalSpent = orders.Sum(o => o.GrandTotal ?? 0);
-        var lastOrder = orders.FirstOrDefault()?.CreatedAt;
-
-        var recentOrdersList = orders.Take(15).Select(o => new
-        {
-            id = o.Id,
-            trackingCode = o.TrackingCode ?? string.Empty,
-            serviceName = o.Service?.Name ?? "Home Service",
-            service = o.Service != null ? new { id = o.Service.Id, name = o.Service.Name } : null,
-            locationName = o.ShippingAddress ?? string.Empty,
-            shippingAddress = o.ShippingAddress ?? string.Empty,
-            grandTotal = o.GrandTotal ?? 0,
-            total = o.GrandTotal ?? 0,
-            deliveryStatus = o.DeliveryStatus ?? "pending",
-            paymentStatus = o.PaymentStatus ?? "unpaid",
-            paymentType = o.PaymentType ?? "cod",
-            createdAt = o.CreatedAt
-        }).ToList();
-
-        var result = new
-        {
-            id = user.Id,
-            name = string.IsNullOrWhiteSpace(user.Name) ? (string.IsNullOrWhiteSpace(user.Phone) ? "Customer" : user.Phone) : user.Name,
-            fullName = user.Name ?? string.Empty,
-            email = user.Email ?? string.Empty,
-            phone = user.Phone ?? string.Empty,
-            address = user.Address ?? string.Empty,
-            orders = recentOrdersList,
-            totalOrders = orders.Count,
-            ordersCount = orders.Count,
-            orderCount = orders.Count,
-            spent = totalSpent,
-            totalSpent = totalSpent,
-            lastOrderAt = lastOrder,
-            createdAt = user.CreatedAt,
-            status = user.Status && !user.IsBanned,
-            isBanned = user.IsBanned
-        };
-
-        return ApiResponseFactory.Ok(result, HttpContext);
+        return Ok(new { customer, orders });
     }
 }
-

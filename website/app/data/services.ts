@@ -160,6 +160,8 @@ export interface SubService {
   name: string;
   price: number;
   priceUnit?: string;
+  /** Backend ServicePrice id, present when the package came from the API. */
+  priceId?: number;
 }
 
 export interface CategoryService {

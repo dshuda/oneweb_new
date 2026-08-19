@@ -1,4 +1,6 @@
 export interface AuthUser {
+  /** Backend user id — present once the session came from the API. */
+  id?: number;
   phone: string;
   name?: string;
 }
@@ -7,8 +9,29 @@ const AUTH_KEY = 'onetap.auth.v1';
 const AUTH_COOKIE = 'onetap.auth';
 const COOKIE_MAX_AGE = 60 * 60 * 24 * 30; // 30 days
 
-/** Default demo account used for checking the login flow. */
-export const DEMO_PHONE = '01700000000';
+/**
+ * Bootstrap ("master") credentials. The API accepts this pair without sending
+ * an SMS — see MasterAuth in src/OneWeb.Api/appsettings.json.
+ */
+export const MASTER_PHONE = '01708521990';
+export const MASTER_OTP = '123456';
+export const MASTER_NAME = 'Faruk Hannan';
+
+/** Kept for older imports; the master number is the default test account. */
+export const DEMO_PHONE = MASTER_PHONE;
+
+/**
+ * Whether to surface the bootstrap test credentials in the UI.
+ *
+ * Off unless NEXT_PUBLIC_SHOW_TEST_CREDENTIALS=true at build time, so a public
+ * deploy never advertises a working login. Local development opts in via
+ * website/.env.local.
+ */
+export const SHOW_TEST_CREDENTIALS =
+  process.env.NEXT_PUBLIC_SHOW_TEST_CREDENTIALS === 'true';
+
+/** The API issues 6-digit codes. */
+export const OTP_LENGTH = 6;
 
 function read<T>(key: string): T | null {
   if (typeof window === 'undefined') return null;
@@ -35,10 +58,13 @@ export function loadAuthUser(): AuthUser | null {
 
 export function saveAuthUser(user: AuthUser): void {
   write(AUTH_KEY, user);
-  // Mirror the session in a cookie so route middleware can protect the profile page.
+  // Mirror the session in a cookie so route middleware (which cannot read
+  // localStorage) can protect the profile page. `secure` is only added over
+  // HTTPS — browsers drop a Secure cookie on a plain-HTTP origin, which would
+  // silently break the profile route on a non-TLS deploy.
   if (typeof document !== 'undefined') {
-    const isSecure = typeof window !== 'undefined' && window.location.protocol === 'https:';
-    document.cookie = `${AUTH_COOKIE}=1; path=/; max-age=${COOKIE_MAX_AGE}; samesite=lax${isSecure ? '; secure' : ''}`;
+    const secure = window.location.protocol === 'https:' ? '; secure' : '';
+    document.cookie = `${AUTH_COOKIE}=1; path=/; max-age=${COOKIE_MAX_AGE}; samesite=lax${secure}`;
   }
 }
 

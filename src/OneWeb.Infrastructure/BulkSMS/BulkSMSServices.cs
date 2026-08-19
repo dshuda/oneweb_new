@@ -1,7 +1,8 @@
-using Microsoft.Extensions.Configuration;
-using Microsoft.Extensions.Logging;
+﻿using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using OneWeb.Domain.Bulk;
+using System.Reflection;
+using System.Text;
 using System.Text.Json;
 
 namespace OneWeb.Infrastructure.Bulk
@@ -9,93 +10,61 @@ namespace OneWeb.Infrastructure.Bulk
     public class BulkSMSServices : IBulkSMServices
     {
         private readonly BulkSMS _smsConfig;
-        private readonly IConfiguration _config;
-        private readonly ILogger<BulkSMSServices>? _logger;
-        private const string SingleSmsUrl = "http://bulksmsbd.net/api/smsapi";
-        private const string ManySmsUrl = "http://bulksmsbd.net/api/smsapimany";
-
-        public BulkSMSServices(IOptions<BulkSMS> smsOptions, IConfiguration config, ILogger<BulkSMSServices>? logger = null)
+      //  private ILogger _logger;
+        private readonly string baseUrl = "http://bulksmsbd.net/api/smsapimany";
+        public BulkSMSServices(IOptions<BulkSMS> smsOptions)
         {
             _smsConfig = smsOptions.Value;
-            _config = config;
-            _logger = logger;
+          //  _logger = logger;
         }
 
         public async Task<BulkSMSApiResponse> SendAsync(string mobile, string message)
         {
             try
             {
-                var cleanNumber = mobile.Trim();
-                if (!cleanNumber.StartsWith("88") && cleanNumber.StartsWith("01"))
+                SMSData data = new SMSData(_smsConfig.SenderId, _smsConfig.Api_Key);
+                var code = Random.Shared.Next(100000, 999999);
+                data.messages = new List<SMS>();
+                data.messages.Add(new SMS()
                 {
-                    cleanNumber = "88" + cleanNumber;
-                }
-
-                var apiKey = !string.IsNullOrWhiteSpace(_smsConfig?.Api_Key)
-                    ? _smsConfig.Api_Key
-                    : (_config["BulkSMS:Api_Key"] ?? _config["BulkSMS:ApiKey"] ?? "pUnGy1xfE77G1YicFYM7");
-
-                var senderId = !string.IsNullOrWhiteSpace(_smsConfig?.SenderId)
-                    ? _smsConfig.SenderId
-                    : (_config["BulkSMS:SenderId"] ?? _config["BulkSMS:senderid"] ?? "8809648908931");
-
-                using var client = new HttpClient();
-                client.Timeout = TimeSpan.FromSeconds(15);
-
-                var encodedMessage = Uri.EscapeDataString(message);
-                var url = $"{SingleSmsUrl}?api_key={Uri.EscapeDataString(apiKey)}&type=text&number={Uri.EscapeDataString(cleanNumber)}&senderid={Uri.EscapeDataString(senderId)}&message={encodedMessage}";
-
-                var response = await client.GetAsync(url);
-                var responseContent = await response.Content.ReadAsStringAsync();
-
-                _logger?.LogInformation("BulkSMS response for {Number}: {Response}", cleanNumber, responseContent);
-
-                if (!string.IsNullOrEmpty(responseContent))
-                {
-                    var result = JsonSerializer.Deserialize<BulkSMSApiResponse>(responseContent);
-                    return result ?? new BulkSMSApiResponse { response_code = (int)response.StatusCode, error_message = responseContent };
-                }
-
-                return new BulkSMSApiResponse { response_code = (int)response.StatusCode, error_message = "Empty response from gateway" };
+                    message = message,
+                    to = mobile
+                });
+                HttpClient client = new HttpClient();
+                string json = JsonSerializer.Serialize(data);
+                var content = new StringContent(json, Encoding.UTF8, "application/json");
+                var response = await client.PostAsync(baseUrl, content);
+                string responseContent = await response.Content.ReadAsStringAsync();
+                var r = string.IsNullOrEmpty(responseContent) == false ? JsonSerializer.Deserialize<BulkSMSApiResponse>(responseContent) : new BulkSMSApiResponse();
+               // _logger.LogInformation($" {mobile} - {responseContent}");
+                return r;
             }
-            catch (Exception ex)
+            catch (Exception)
             {
-                _logger?.LogError(ex, "Failed to send SMS to {Mobile}", mobile);
-                return new BulkSMSApiResponse { response_code = 500, error_message = ex.Message };
+               // _logger.LogError($"Faild to send sms to {mobile} with error {ex.Message}");
+                throw;
             }
         }
 
         public async Task<BulkSMSApiResponse> SendAsync(List<SMS> sms)
         {
-            try
-            {
-                using var client = new HttpClient();
-                var data = new
-                {
-                    api_key = _smsConfig.Api_Key,
-                    senderid = _smsConfig.SenderId,
-                    messages = sms
-                };
+            SMSData data = new SMSData(_smsConfig.SenderId, _smsConfig.Api_Key);
+            var code = Random.Shared.Next(100000, 999999);
+            data.messages = new List<SMS>();
+            data.messages = sms;
 
-                var json = JsonSerializer.Serialize(data);
-                var content = new StringContent(json, System.Text.Encoding.UTF8, "application/json");
-                var response = await client.PostAsync(ManySmsUrl, content);
-                var responseContent = await response.Content.ReadAsStringAsync();
 
-                if (!string.IsNullOrEmpty(responseContent))
-                {
-                    var result = JsonSerializer.Deserialize<BulkSMSApiResponse>(responseContent);
-                    return result ?? new BulkSMSApiResponse();
-                }
+            HttpClient client = new HttpClient();
 
-                return new BulkSMSApiResponse { response_code = (int)response.StatusCode };
-            }
-            catch (Exception ex)
-            {
-                _logger?.LogError(ex, "Failed to send bulk SMS");
-                return new BulkSMSApiResponse { response_code = 500, error_message = ex.Message };
-            }
+            string json = JsonSerializer.Serialize(data);
+            var content = new StringContent(json, Encoding.UTF8, "application/json");
+            var response = await client.PostAsync(baseUrl, content);
+            string responseContent = await response.Content.ReadAsStringAsync();
+
+            var r = string.IsNullOrEmpty(responseContent) == false ? JsonSerializer.Deserialize<BulkSMSApiResponse>(responseContent) : new BulkSMSApiResponse();
+            return r;
         }
+
+        
     }
 }
-

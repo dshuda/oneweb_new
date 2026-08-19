@@ -14,21 +14,28 @@ import {
 } from '@/components/ui/drawer';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { DEMO_PHONE, isValidPhone } from '@/app/lib/auth';
-import { saveUserProfile } from '@/app/lib/storage';
+import {
+  MASTER_OTP,
+  MASTER_PHONE,
+  OTP_LENGTH,
+  SHOW_TEST_CREDENTIALS,
+  isValidPhone,
+  type AuthUser,
+} from '@/app/lib/auth';
+import { ApiError, sendOtp, updateName, verifyOtp } from '@/app/lib/api';
+import { asset } from '@/app/lib/assets';
 
 interface AuthDrawerProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onLogin: (phone: string, name?: string) => void;
+  onLogin: (user: AuthUser) => void;
   mode?: 'account' | 'checkout' | 'schedule';
 }
 
 const OTP_TIMER_SECONDS = 60;
 const OTP_EXPIRED_MESSAGE = 'Your code has expired. Please request a new one.';
-const OTP_LENGTH = 6;
 
-/* 6-box OTP input with auto-advance and backspace navigation. */
+/* OTP boxes with auto-advance, backspace navigation and paste support. */
 function OtpInput({
   value,
   onChange,
@@ -45,7 +52,10 @@ function OtpInput({
   const refs = useRef<(HTMLInputElement | null)[]>([]);
   const [shaking, setShaking] = useState(false);
   const lastShake = useRef(shakeKey);
+  const slots = Array.from({ length: OTP_LENGTH }, (_, i) => i);
 
+  // Replay the shake animation on each fresh request (not on remounts,
+  // which carry a stale nonzero shakeKey from earlier rejections).
   useEffect(() => {
     if (shakeKey > lastShake.current) setShaking(true);
     lastShake.current = shakeKey;
@@ -91,11 +101,11 @@ function OtpInput({
       onAnimationEnd={(e) => {
         if (e.target === e.currentTarget) setShaking(false);
       }}
-      className={`flex justify-center gap-2 ${
+      className={`flex justify-center gap-1.5 sm:gap-2 ${
         shaking ? 'animate-otp-shake' : ''
       }`}
     >
-      {Array.from({ length: OTP_LENGTH }).map((_, index) => (
+      {slots.map((index) => (
         <input
           key={index}
           ref={(el) => {
@@ -110,7 +120,7 @@ function OtpInput({
           onKeyDown={(e) => handleKeyDown(index, e)}
           onPaste={index === 0 ? handlePaste : undefined}
           disabled={disabled}
-          className="h-12 w-10 sm:h-14 sm:w-12 rounded-xl border border-border bg-white text-center text-xl font-bold text-foreground transition-all outline-none focus:border-primary focus:ring-3 focus:ring-primary/20 disabled:cursor-not-allowed disabled:bg-muted/50 disabled:text-muted-foreground"
+          className="h-14 w-11 rounded-xl border border-border bg-white text-center text-xl font-bold text-foreground transition-all outline-none focus:border-primary focus:ring-3 focus:ring-primary/20 disabled:cursor-not-allowed disabled:bg-muted/50 disabled:text-muted-foreground sm:w-12"
         />
       ))}
     </div>
@@ -124,25 +134,31 @@ export default function AuthDrawer({
   mode = 'account',
 }: AuthDrawerProps) {
   const router = useRouter();
-  const [step, setStep] = useState<'phone' | 'otp'>('phone');
-  const [phone, setPhone] = useState('');
+  const [step, setStep] = useState<'phone' | 'otp' | 'name'>('phone');
+  const [phone, setPhone] = useState(SHOW_TEST_CREDENTIALS ? MASTER_PHONE : '');
   const [otp, setOtp] = useState('');
+  const [name, setName] = useState('');
   const [phoneError, setPhoneError] = useState('');
   const [otpError, setOtpError] = useState('');
+  const [nameError, setNameError] = useState('');
   const [resendIn, setResendIn] = useState(0);
   const [shakeKey, setShakeKey] = useState(0);
-  const [loading, setLoading] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const verifiedUser = useRef<AuthUser | null>(null);
 
   // Reset the form every time the drawer is opened.
   useEffect(() => {
     if (open) {
       setStep('phone');
-      setPhone('');
+      setPhone(SHOW_TEST_CREDENTIALS ? MASTER_PHONE : '');
       setOtp('');
+      setName('');
       setPhoneError('');
       setOtpError('');
+      setNameError('');
       setResendIn(0);
-      setLoading(false);
+      setBusy(false);
+      verifiedUser.current = null;
     }
   }, [open]);
 
@@ -155,43 +171,59 @@ export default function AuthDrawer({
     return () => clearInterval(id);
   }, [step]);
 
-  // Once countdown hits zero, notify expiration
+  // Once the countdown hits zero, any code that was entered expires.
   useEffect(() => {
-    if (step === 'otp' && resendIn === 0 && otp.length > 0) {
+    if (step === 'otp' && resendIn === 0) {
+      setOtp('');
       setOtpError(OTP_EXPIRED_MESSAGE);
       setShakeKey((k) => k + 1);
     }
   }, [step, resendIn]);
 
+  const requestOtp = async (target: string) => {
+    setBusy(true);
+    setOtpError('');
+    try {
+      const result = await sendOtp(target);
+      if (!result.success) {
+        setPhoneError(result.message || 'Could not send the code.');
+        return false;
+      }
+      return true;
+    } catch (error) {
+      setPhoneError(
+        error instanceof ApiError
+          ? error.message
+          : 'Could not send the code. Please try again.',
+      );
+      return false;
+    } finally {
+      setBusy(false);
+    }
+  };
+
   const handleGetCode = async () => {
     const cleaned = phone.replace(/\s/g, '');
     if (!isValidPhone(cleaned)) {
-      setPhoneError('Enter a valid 11-digit number, e.g. 01700000000');
+      setPhoneError('Enter a valid 11-digit number, e.g. 01708521990');
       return;
     }
-    setLoading(true);
+    setPhone(cleaned);
     setPhoneError('');
-    try {
-      const res = await fetch('/api/v1/auth/send-otp', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ phone: cleaned }),
-      });
-      const data = await res.json();
-      if (!res.ok || (data && data.success === false)) {
-        setPhoneError(data?.message || 'Failed to send OTP. Please try again.');
-        setLoading(false);
-        return;
-      }
-      setPhone(cleaned);
-      setOtp('');
-      setOtpError('');
-      setResendIn(OTP_TIMER_SECONDS);
-      setStep('otp');
-    } catch (err: any) {
-      setPhoneError(err?.message || 'Failed to send OTP. Network error.');
-    } finally {
-      setLoading(false);
+    if (!(await requestOtp(cleaned))) return;
+    setOtp('');
+    setOtpError('');
+    setResendIn(OTP_TIMER_SECONDS);
+    setStep('otp');
+  };
+
+  const finish = (user: AuthUser) => {
+    onLogin(user);
+    onOpenChange(false);
+    // In checkout/schedule mode the pending flow resumes on its own; only
+    // the plain account login sends the user to their profile dashboard.
+    if (mode === 'account') {
+      router.push('/profile');
     }
   };
 
@@ -206,75 +238,75 @@ export default function AuthDrawer({
       setShakeKey((k) => k + 1);
       return;
     }
-    setLoading(true);
+
+    setBusy(true);
     setOtpError('');
     try {
-      const res = await fetch('/api/v1/auth/verify-otp', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ phone, otp: code }),
-      });
-      const data = await res.json();
-      if (!res.ok || (data && data.success === false)) {
-        setOtpError(data?.message || 'Invalid or expired OTP');
-        setShakeKey((k) => k + 1);
-        setLoading(false);
+      const result = await verifyOtp(phone, code);
+      const user: AuthUser = {
+        id: result.userId,
+        phone: result.phone || phone,
+        name: result.name || undefined,
+      };
+
+      // First-time customers are asked for their name before continuing.
+      if (result.nameRequired && !user.name) {
+        verifiedUser.current = user;
+        setStep('name');
         return;
       }
-
-      if (data?.accessToken) {
-        localStorage.setItem('accessToken', data.accessToken);
-        if (data.refreshToken) localStorage.setItem('refreshToken', data.refreshToken);
-        if (data.userId) localStorage.setItem('userId', data.userId.toString());
-      }
-
-      if (data?.name || data?.address) {
-        saveUserProfile({
-          name: data.name || '',
-          address: data.address || '',
-        });
-      }
-
-      onLogin(phone, data?.name);
-      onOpenChange(false);
-
-      if (mode === 'account') {
-        if (typeof window !== 'undefined' && window.location.pathname === '/profile') {
-          router.refresh();
-        } else {
-          router.push('/profile');
-        }
-      }
-    } catch (err: any) {
-      setOtpError(err?.message || 'Verification failed. Network error.');
+      finish(user);
+    } catch (error) {
+      setOtp('');
       setShakeKey((k) => k + 1);
+      setOtpError(
+        error instanceof ApiError
+          ? error.status === 401
+            ? 'Invalid or expired code. Please try again.'
+            : error.message
+          : 'Could not verify the code. Please try again.',
+      );
     } finally {
-      setLoading(false);
+      setBusy(false);
+    }
+  };
+
+  const handleSaveName = async () => {
+    const trimmed = name.trim();
+    if (trimmed.length < 3) {
+      setNameError('Please enter your full name (at least 3 characters).');
+      return;
+    }
+    const pending = verifiedUser.current;
+    if (!pending) return;
+
+    setBusy(true);
+    setNameError('');
+    try {
+      await updateName(trimmed);
+      finish({ ...pending, name: trimmed });
+    } catch (error) {
+      setNameError(
+        error instanceof ApiError
+          ? error.message
+          : 'Could not save your name. Please try again.',
+      );
+    } finally {
+      setBusy(false);
     }
   };
 
   const handleResend = async () => {
-    if (resendIn > 0 || loading) return;
-    setLoading(true);
+    if (!(await requestOtp(phone))) return;
     setOtp('');
     setOtpError('');
-    try {
-      const res = await fetch('/api/v1/auth/send-otp', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ phone }),
-      });
-      const data = await res.json();
-      if (!res.ok || (data && data.success === false)) {
-        setOtpError(data?.message || 'Failed to resend OTP.');
-        return;
-      }
-      setResendIn(OTP_TIMER_SECONDS);
-    } catch (err: any) {
-      setOtpError(err?.message || 'Network error resending OTP.');
-    } finally {
-      setLoading(false);
-    }
+    setResendIn(OTP_TIMER_SECONDS);
+  };
+
+  const titles: Record<typeof step, string> = {
+    phone: 'Login',
+    otp: 'Verify OTP',
+    name: 'Almost there',
   };
 
   return (
@@ -289,7 +321,7 @@ export default function AuthDrawer({
               <ArrowLeft size={20} />
             </DrawerClose>
             <DrawerTitle className="text-lg font-bold text-foreground">
-              {step === 'phone' ? 'Login' : 'Verify OTP'}
+              {titles[step]}
             </DrawerTitle>
           </div>
           {mode === 'checkout' && (
@@ -309,7 +341,7 @@ export default function AuthDrawer({
             /* ---- Step 1: Phone number ---- */
             <div className="flex flex-col items-center gap-5 text-center">
               <Image
-                src="/illustration_mobile_no.svg"
+                src={asset('/illustration_mobile_no.svg')}
                 alt=""
                 width={200}
                 height={200}
@@ -321,7 +353,8 @@ export default function AuthDrawer({
                   Enter your contact no.
                 </h2>
                 <p className="mx-auto max-w-xs text-sm leading-relaxed text-muted-foreground">
-                  You'll receive a 6-digit code to your mobile number shortly.
+                  You'll receive a {OTP_LENGTH} digit code to your provided no.
+                  shortly
                 </p>
               </div>
 
@@ -329,7 +362,7 @@ export default function AuthDrawer({
                 className="w-full space-y-3"
                 onSubmit={(e) => {
                   e.preventDefault();
-                  handleGetCode();
+                  void handleGetCode();
                 }}
               >
                 <Input
@@ -338,11 +371,10 @@ export default function AuthDrawer({
                     setPhone(e.target.value);
                     setPhoneError('');
                   }}
-                  placeholder="01XXXXXXXXX"
+                  placeholder="Phone no."
                   inputMode="tel"
                   className="h-11 rounded-xl text-center text-base font-semibold tracking-wide"
                   aria-label="Phone number"
-                  disabled={loading}
                 />
                 {phoneError && (
                   <p className="text-sm font-medium text-destructive">
@@ -352,29 +384,33 @@ export default function AuthDrawer({
                 <Button
                   type="submit"
                   size="lg"
-                  disabled={loading}
+                  disabled={busy}
                   className="w-full rounded-xl bg-primary hover:bg-primary/90"
                 >
-                  {loading ? (
-                    <>
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      Sending OTP...
-                    </>
-                  ) : (
-                    'Get Verification Code'
-                  )}
+                  {busy && <Loader2 size={16} className="animate-spin" />}
+                  Get Verification Code
                 </Button>
               </form>
 
-              <p className="text-xs text-muted-foreground">
-                We'll verify your mobile number via SMS OTP.
-              </p>
+              {/* Test credentials are never advertised on a public deploy. */}
+              {SHOW_TEST_CREDENTIALS && (
+                <p className="text-xs text-muted-foreground">
+                  Test account ·{' '}
+                  <span className="font-semibold text-foreground">
+                    {MASTER_PHONE}
+                  </span>{' '}
+                  · OTP{' '}
+                  <span className="font-semibold text-foreground">
+                    {MASTER_OTP}
+                  </span>
+                </p>
+              )}
             </div>
-          ) : (
+          ) : step === 'otp' ? (
             /* ---- Step 2: OTP ---- */
             <div className="flex flex-col items-center gap-5 text-center">
               <Image
-                src="/illustration_otp.svg"
+                src={asset('/illustration_otp.svg')}
                 alt=""
                 width={200}
                 height={200}
@@ -385,10 +421,8 @@ export default function AuthDrawer({
                   Enter verification code
                 </h2>
                 <p className="mx-auto max-w-xs text-sm leading-relaxed text-muted-foreground">
-                  We sent a 6-digit code to{' '}
-                  <span className="font-semibold text-foreground">
-                    {phone}
-                  </span>
+                  We sent a {OTP_LENGTH} digit code to{' '}
+                  <span className="font-semibold text-foreground">{phone}</span>
                 </p>
               </div>
 
@@ -399,8 +433,8 @@ export default function AuthDrawer({
                     setOtp(v);
                     setOtpError('');
                   }}
-                  onComplete={handleVerify}
-                  disabled={resendIn === 0 || loading}
+                  onComplete={(v) => void handleVerify(v)}
+                  disabled={resendIn === 0 || busy}
                   shakeKey={shakeKey}
                 />
                 {otpError && (
@@ -416,40 +450,35 @@ export default function AuthDrawer({
               <Button
                 size="lg"
                 className="w-full rounded-xl bg-primary hover:bg-primary/90"
-                disabled={otp.length !== OTP_LENGTH || resendIn === 0 || loading}
-                onClick={() => handleVerify()}
+                disabled={otp.length !== OTP_LENGTH || resendIn === 0 || busy}
+                onClick={() => void handleVerify()}
               >
-                {loading ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Verifying...
-                  </>
-                ) : (
-                  'Verify & Login'
-                )}
+                {busy && <Loader2 size={16} className="animate-spin" />}
+                Verify &amp; Login
               </Button>
 
               <div className="flex items-center gap-5 text-sm">
                 <button
                   type="button"
                   onClick={() => setStep('phone')}
-                  disabled={loading}
                   className="font-semibold text-primary transition-colors hover:text-primary/70 hover:underline"
                 >
                   Change number
                 </button>
                 <button
                   type="button"
-                  onClick={handleResend}
-                  disabled={resendIn > 0 || loading}
+                  onClick={() => void handleResend()}
+                  disabled={resendIn > 0 || busy}
                   className={`font-semibold transition-colors ${
-                    resendIn > 0 || loading
+                    resendIn > 0 || busy
                       ? 'cursor-not-allowed text-muted-foreground'
                       : 'text-primary hover:text-primary/70 hover:underline'
                   }`}
                 >
                   {resendIn > 0
-                    ? `Resend code in 0:${String(resendIn).padStart(2, '0')}`
+                    ? `Resend code in ${Math.floor(resendIn / 60)}:${String(
+                        resendIn % 60,
+                      ).padStart(2, '0')}`
                     : 'Resend code'}
                 </button>
               </div>
@@ -461,6 +490,70 @@ export default function AuthDrawer({
                   style={{ width: `${(resendIn / OTP_TIMER_SECONDS) * 100}%` }}
                 />
               </div>
+
+              {SHOW_TEST_CREDENTIALS && phone === MASTER_PHONE && (
+                <p className="text-xs text-muted-foreground">
+                  Test number — use OTP{' '}
+                  <span className="font-semibold text-foreground">
+                    {MASTER_OTP}
+                  </span>
+                  .
+                </p>
+              )}
+            </div>
+          ) : (
+            /* ---- Step 3: Name (first-time customers) ---- */
+            <div className="flex flex-col items-center gap-5 text-center">
+              <Image
+                src={asset('/illustration_mobile_no.svg')}
+                alt=""
+                width={200}
+                height={200}
+                className="h-40 w-auto"
+              />
+              <div className="space-y-1.5">
+                <h2 className="text-xl font-bold text-foreground">
+                  What should we call you?
+                </h2>
+                <p className="mx-auto max-w-xs text-sm leading-relaxed text-muted-foreground">
+                  Your name appears on your bookings and helps our team reach
+                  you.
+                </p>
+              </div>
+
+              <form
+                className="w-full space-y-3"
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  void handleSaveName();
+                }}
+              >
+                <Input
+                  value={name}
+                  onChange={(e) => {
+                    setName(e.target.value);
+                    setNameError('');
+                  }}
+                  placeholder="Full name"
+                  autoFocus
+                  className="h-11 rounded-xl text-center text-base font-semibold"
+                  aria-label="Full name"
+                />
+                {nameError && (
+                  <p className="text-sm font-medium text-destructive">
+                    {nameError}
+                  </p>
+                )}
+                <Button
+                  type="submit"
+                  size="lg"
+                  disabled={busy}
+                  className="w-full rounded-xl bg-primary hover:bg-primary/90"
+                >
+                  {busy && <Loader2 size={16} className="animate-spin" />}
+                  Continue
+                </Button>
+              </form>
             </div>
           )}
         </div>
@@ -468,4 +561,3 @@ export default function AuthDrawer({
     </Drawer>
   );
 }
-

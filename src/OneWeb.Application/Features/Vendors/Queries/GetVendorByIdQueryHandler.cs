@@ -18,6 +18,7 @@ public class GetVendorByIdQueryHandler : IRequestHandler<GetVendorByIdQuery, Ven
     {
         var vendor = await _dbContext.Vendors
             .Include(v => v.User)
+            .Include(v => v.VendorServices)
             .FirstOrDefaultAsync(v => v.Id == request.Id, cancellationToken);
         
         if (vendor == null)
@@ -34,7 +35,8 @@ public class GetVendorByIdQueryHandler : IRequestHandler<GetVendorByIdQuery, Ven
             vendor.TotalEarnings,
             vendor.Address,
             vendor.Status,
-            vendor.CreatedAt
+            vendor.CreatedAt,
+            vendor.VendorServices.Select(vs => vs.ServiceId).ToList()
         );
     }
 }

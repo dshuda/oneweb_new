@@ -35,24 +35,22 @@ public record CustomerOrderDto
 }
 public record OrderAdminDto
 {
-    public long Id { get; set; }
-    public string? TrackingCode { get; set; }
-    public string DeliveryStatus { get; set; }
-    public string PaymentStatus { get; set; }
-    public string? PaymentType { get; set; }
-    public double? GrandTotal { get; set; }
-    public double CouponDiscount { get; set; }
-    public string? ShippingAddress { get; set; }
-    public string? AdditionalInfo { get; set; }
-    public DateTime? CreatedAt { get; set; }
-    public string? Customer { get; set; }
-    public string? Vendor { get; set; }
-    public string? VendorContact { get; set; }
+public    long Id {get;set;}
+public    string? TrackingCode {get;set;}
+public    string DeliveryStatus {get;set;}
+public    string PaymentStatus {get;set;}
+public    string? PaymentType {get;set;}
+public    double? GrandTotal {get;set;}
+public    double CouponDiscount {get;set;}
+public    string? ShippingAddress {get;set;}
+public    string? AdditionalInfo {get;set;}
+public    DateTime? CreatedAt {get;set;}
+public    string? Customer {get;set;}
     public long? VendorId { get; set; }
     public long? PriceId { get; set; }
-    public ServiceSummaryDto? Service { get; set; }
-    public List<PricingDto>? Pricing { get; set; }
-    public string? OrderFrom { get; set; }
+public    ServiceSummaryDto? Service {get;set;}
+public List<PricingDto>? Pricing { get; set; }
+public string? OrderFrom { get; set; }
 }
 
 public record  PricingDto

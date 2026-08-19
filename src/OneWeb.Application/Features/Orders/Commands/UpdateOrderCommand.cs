@@ -49,7 +49,7 @@ public class UpdateOrderCommandHandler : IRequestHandler<UpdateOrderCommand, boo
     public async Task<bool> Handle(UpdateOrderCommand request, CancellationToken cancellationToken)
     {
         var order = await _dbContext.Orders
-            .Include(f => f.User)
+            .Include(f=>f.User)
             .FirstOrDefaultAsync(o => o.Id == request.Id, cancellationToken);
         
         if (order == null)
@@ -59,46 +59,31 @@ public class UpdateOrderCommandHandler : IRequestHandler<UpdateOrderCommand, boo
         if (!IsValidTransition(order.DeliveryStatus, request.DeliveryStatus, request.UpdatedByRole))
             return false;
 
-        // Update Order Details
-        if (request.PriceId > 0)
-        {
-            order.PriceId = request.PriceId;
-        }
+        // Update DeliveryStatus
 
-        if (!string.IsNullOrWhiteSpace(request.PaymentStatus))
-        {
-            order.PaymentStatus = request.PaymentStatus;
-        }
-
-        if (!string.IsNullOrWhiteSpace(request.PaymentType))
-        {
-            order.PaymentType = request.PaymentType;
-        }
-
-        if (request.GrandTotal > 0)
-        {
-            order.GrandTotal = request.GrandTotal;
-        }
-
-        // Set VendorId safely (null if <= 0)
-        order.VendorId = request.VendorId > 0 ? request.VendorId : null;
-
-        if (!string.IsNullOrWhiteSpace(request.DeliveryStatus))
-        {
-            order.DeliveryStatus = request.DeliveryStatus;
-        }
+        order.PriceId = request.PriceId;
+        order.PaymentStatus = request.PaymentStatus;
+        order.PaymentType = request.PaymentType;
+        order.GrandTotal = request.GrandTotal;
+        order.VendorId = request.VendorId;
+        order.DeliveryStatus = request.DeliveryStatus;
         
         // Append to DeliverStatusJson
         var history = string.IsNullOrEmpty(order.DeliverStatusJson) 
             ? new List<object>()
             : JsonSerializer.Deserialize<List<object>>(order.DeliverStatusJson) ?? new List<object>();
         
-        history.Add(new { status = order.DeliveryStatus, timestamp = DateTime.UtcNow.ToString("o") });
+        history.Add(new { status = request.DeliveryStatus, timestamp = DateTime.UtcNow.ToString("o") });
         order.DeliverStatusJson = JsonSerializer.Serialize(history);
         order.UpdatedAt = DateTime.UtcNow;
+        
+        
+
+
+
 
         // If completed: calculate commission and update vendor balance
-        if (order.DeliveryStatus == "completed" && order.VendorId.HasValue)
+        if (request.DeliveryStatus == "completed" && order.VendorId.HasValue)
         {
             var service = await _dbContext.Services.FirstOrDefaultAsync(s => s.Id == order.ServiceId, cancellationToken);
             var vendor = await _dbContext.Vendors.FirstOrDefaultAsync(v => v.Id == order.VendorId, cancellationToken);
@@ -133,59 +118,41 @@ public class UpdateOrderCommandHandler : IRequestHandler<UpdateOrderCommand, boo
         
         await _dbContext.SaveChangesAsync(cancellationToken);
 
-        // SMS notification to customer when vendor is assigned
-        if (order.DeliveryStatus == "assigned" && order.VendorId.HasValue)
-        {
-            try
-            {
-                var n = order.User?.Name?.Split(" ")[0] ?? string.Empty;
-                var vendor = await _dbContext.Vendors
-                    .Where(f => f.Id == order.VendorId.Value)
-                    .Include(f => f.User)
-                    .FirstOrDefaultAsync(cancellationToken);
-                var customer = await _dbContext.Users
-                    .Where(f => f.Id == order.UserId)
-                    .FirstOrDefaultAsync(cancellationToken);
 
-                if (vendor?.User != null && customer != null && !string.IsNullOrWhiteSpace(customer.Phone))
-                {
-                    var message = $"Dear {n} Your Order {order.TrackingCode} has been confirmed. please call {vendor.User.Phone} for services";
-                    await _sms.SendAsync("88" + customer.Phone, message);
-                }
-            }
-            catch
-            {
-                // SMS failure should not break order update
-            }
+        if (request.DeliveryStatus == "assigned")
+        {
+            var n = order.User?.Name?.Split(" ")[0] ?? string.Empty;
+            var vendor = await _dbContext.Vendors.Where(f => f.Id == request.VendorId).Include(f=>f.User).FirstOrDefaultAsync() ?? throw new Exception("Vendor Not Found");
+            var customer = await _dbContext.Users.Where(f => f.Id == order.UserId).FirstOrDefaultAsync() ?? throw new Exception("Vendor Not Found");
+
+            var message = $"Dear {n} Your Order {order.TrackingCode} has been confirmed. please call {vendor.User?.Phone} for services";
+            await _sms.SendAsync("88" + customer?.Phone, message);
         }
 
-        // Invalidate dashboard cache
+
+
+        // T4.1 — Invalidate dashboard cache
         await _cacheService.InvalidateStatsAsync();
         
         return true;
     }
     
-    private bool IsValidTransition(string currentStatus, string newStatus, string? role)
+    private bool IsValidTransition(string currentStatus, string newStatus, string role)
     {
-        var userRole = (role ?? "admin").ToLower();
-        
-        // Admin and staff have full privilege to manage and assign orders
-        if (userRole is "admin" or "staff")
-        {
-            return true;
-        }
-
+        // Admins correct payment details, totals and vendor assignment without
+        // moving the order along, so a same-status update is a valid no-op move.
         if (currentStatus == newStatus)
-        {
-            return true;
-        }
+            return role is "admin" or "staff";
 
-        return (currentStatus, newStatus, userRole) switch
+        return (currentStatus, newStatus, role) switch
         {
+            ("pending", "confirmed", "admin" or "staff") => true,
+            ("confirmed", "assigned", "admin" or "staff") => true,
             ("assigned", "on_the_way", "vendor") => true,
             ("on_the_way", "in_progress", "vendor") => true,
             ("in_progress", "completed", "vendor") => true,
             (_, "cancelled", "customer") => currentStatus == "pending",
+            (_, "cancelled", "admin" or "staff") => currentStatus != "completed",
             _ => false
         };
     }

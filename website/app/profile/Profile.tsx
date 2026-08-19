@@ -1,6 +1,10 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { LocationPicker } from '@/app/components/LocationPicker';
+import { MapPreview } from '@/app/components/MapPreview';
+import { loadLocation, saveLocation, type PlaceSuggestion } from '@/app/lib/location';
+
+import { useCallback, useEffect, useState } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
@@ -29,116 +33,142 @@ import {
   type Booking,
   type UserProfile,
 } from '@/app/lib/storage';
-import { DEMO_PHONE } from '@/app/lib/auth';
+import { MASTER_PHONE, SHOW_TEST_CREDENTIALS } from '@/app/lib/auth';
+import { cancelOrder, getOrders, updateName, type ApiOrder } from '@/app/lib/api';
 import { formatDateParts } from '@/lib/utils';
+import { asset } from '@/app/lib/assets';
 
 type Tab = 'overview' | 'bookings' | 'settings';
 
-function formatPhone(phone?: string): string {
-  if (!phone) return '';
-  const digits = phone.replace(/\D/g, '');
-  if (digits.length === 11) {
-    return `${digits.slice(0, 5)} ${digits.slice(5)}`;
-  }
-  return phone;
+function formatPhone(phone: string): string {
+  return phone.length === 11
+    ? `${phone.slice(0, 5)} ${phone.slice(5)}`
+    : phone;
 }
 
-function formatBookedAt(iso?: string): string {
-  if (!iso) return 'Recently';
-  try {
-    const d = new Date(iso);
-    if (isNaN(d.getTime())) return 'Recently';
-    return d.toLocaleDateString('en-US', {
-      day: 'numeric',
-      month: 'short',
-      year: 'numeric',
-    });
-  } catch {
-    return 'Recently';
-  }
+function formatBookedAt(iso: string): string {
+  const d = new Date(iso);
+  return d.toLocaleDateString('en-US', {
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+  });
 }
 
-function getStatusBadge(status?: string) {
-  switch (status?.toLowerCase()) {
-    case 'completed':
-      return (
-        <span className="rounded-full bg-emerald-100 px-2.5 py-1 text-xs font-bold text-emerald-700">
-          Completed
-        </span>
-      );
-    case 'in_progress':
-    case 'in progress':
-      return (
-        <span className="rounded-full bg-blue-100 px-2.5 py-1 text-xs font-bold text-blue-700">
-          In Progress
-        </span>
-      );
-    case 'confirmed':
-      return (
-        <span className="rounded-full bg-green-100 px-2.5 py-1 text-xs font-bold text-green-700">
-          Confirmed
-        </span>
-      );
-    case 'cancelled':
-      return (
-        <span className="rounded-full bg-red-100 px-2.5 py-1 text-xs font-bold text-red-700">
-          Cancelled
-        </span>
-      );
-    default:
-      return (
-        <span className="rounded-full bg-amber-100 px-2.5 py-1 text-xs font-bold text-amber-700">
-          Pending
-        </span>
-      );
-  }
+/** One row of the bookings list, whether it came from the API or localStorage. */
+interface BookingView {
+  id: string;
+  label: string;
+  /** "Wed 12 · 02:30 PM" — only known for locally scheduled bookings. */
+  schedule?: string;
+  bookedAt?: string;
+  paymentLabel: string;
+  statusLabel: string;
+  total: number;
+  serviceCount: number;
+  reference?: string;
+  /** Set when the row is a real order that can be cancelled server-side. */
+  local: boolean;
 }
+
+const PAYMENT_LABELS: Record<string, string> = {
+  cash_on_delivery: 'Cash on Delivery',
+  cod: 'Cash on Delivery',
+  online: 'Online',
+};
+
+function titleCase(value: string): string {
+  return value.charAt(0).toUpperCase() + value.slice(1).replace(/_/g, ' ');
+}
+
+function fromApiOrder(order: ApiOrder): BookingView {
+  return {
+    id: `api-${order.id}`,
+    label: order.service?.name ?? 'Service',
+    bookedAt: order.createdAt ?? undefined,
+    paymentLabel:
+      PAYMENT_LABELS[order.paymentType ?? ''] ??
+      (order.paymentType ? titleCase(order.paymentType) : 'Not set'),
+    statusLabel: titleCase(order.deliveryStatus || 'pending'),
+    total: order.grandTotal ?? 0,
+    serviceCount: 1,
+    reference: order.trackingCode ?? undefined,
+    local: false,
+  };
+}
+
+function fromLocalBooking(booking: Booking): BookingView {
+  const first = booking.items[0];
+  const label = first
+    ? first.subName
+      ? `${first.serviceTitle} (${first.subName})`
+      : first.serviceTitle
+    : 'Service';
+  const { dayShort, dayNumber } = first
+    ? formatDateParts(first.date)
+    : { dayShort: '', dayNumber: '' };
+
+  return {
+    id: booking.id,
+    label,
+    schedule: first ? `${dayShort} ${dayNumber} · ${first.time}` : undefined,
+    bookedAt: booking.createdAt,
+    paymentLabel: booking.payment === 'cod' ? 'Cash on Delivery' : 'Online',
+    statusLabel: 'Confirmed',
+    total: booking.total,
+    serviceCount: booking.items.reduce((sum, i) => sum + i.qty, 0),
+    reference: booking.trackingCodes?.[0],
+    local: true,
+  };
+}
+
+const STATUS_STYLES: Record<string, string> = {
+  Pending: 'bg-amber-100 text-amber-700',
+  Cancelled: 'bg-red-100 text-red-700',
+  Completed: 'bg-green-100 text-green-700',
+  Confirmed: 'bg-green-100 text-green-700',
+};
 
 function BookingRow({
   booking,
   onDelete,
 }: {
-  booking: Booking;
-  onDelete: (id: string) => void;
+  booking: BookingView;
+  onDelete: (booking: BookingView) => void;
 }) {
-  const items = Array.isArray(booking?.items) ? booking.items : [];
-  const first = items[0];
-  const label = first
-    ? first.subName
-      ? `${first.serviceTitle} (${first.subName})`
-      : first.serviceTitle || 'Service'
-    : 'Service';
-  const { dayShort, dayNumber } = first && first.date
-    ? formatDateParts(first.date)
-    : { dayShort: '', dayNumber: '' };
-  const serviceCount = items.reduce((sum, i) => sum + (i?.qty || 1), 0);
-  const totalAmount = typeof booking?.total === 'number' ? booking.total : 0;
-
   return (
     <div className="rounded-2xl border border-border/80 bg-white p-4 shadow-sm transition-shadow hover:shadow-md">
       <div className="flex items-center justify-between gap-3">
         <div className="min-w-0">
-          <p className="truncate text-sm font-bold text-foreground">{label}</p>
+          <p className="truncate text-sm font-bold text-foreground">
+            {booking.label}
+          </p>
           <p className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-muted-foreground">
-            {first && (
+            {booking.schedule && (
               <span className="flex items-center gap-1">
                 <CalendarDays size={12} className="shrink-0 text-primary" />
-                {dayShort} {dayNumber} · {first.time || 'Scheduled'}
+                {booking.schedule}
               </span>
             )}
-            <span>· Booked {formatBookedAt(booking?.createdAt)}</span>
-            <span>· {booking?.payment === 'cod' ? 'Cash on Delivery' : 'Online (SSLCommerz)'}</span>
-            {booking?.paymentStatus === 'paid' && (
-              <span className="font-semibold text-green-600">· Paid</span>
+            {booking.bookedAt && (
+              <span>· Booked {formatBookedAt(booking.bookedAt)}</span>
             )}
+            <span>· {booking.paymentLabel}</span>
+            {booking.reference && <span>· {booking.reference}</span>}
           </p>
         </div>
         <div className="flex shrink-0 items-center gap-2.5">
-          {getStatusBadge(booking?.deliveryStatus)}
+          <span
+            className={`rounded-full px-2.5 py-1 text-xs font-bold ${
+              STATUS_STYLES[booking.statusLabel] ?? 'bg-primary/10 text-primary'
+            }`}
+          >
+            {booking.statusLabel}
+          </span>
           <button
             type="button"
-            aria-label="Delete booking"
-            onClick={() => onDelete(booking?.id)}
+            aria-label={booking.local ? 'Delete booking' : 'Cancel booking'}
+            onClick={() => onDelete(booking)}
             className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/10 text-primary transition-colors hover:bg-primary/20"
           >
             <FiTrash2 size={14} />
@@ -147,11 +177,11 @@ function BookingRow({
       </div>
       <div className="mt-3 flex items-center justify-between border-t border-border/70 pt-3 text-sm">
         <span className="text-muted-foreground">
-          {serviceCount} {serviceCount === 1 ? 'service' : 'services'}
-          {booking?.trackingCode && ` · Trk: ${booking.trackingCode}`}
+          {booking.serviceCount}{' '}
+          {booking.serviceCount === 1 ? 'service' : 'services'}
         </span>
         <span className="font-bold text-primary">
-          ৳{totalAmount.toLocaleString()}
+          ৳{booking.total.toLocaleString()}
         </span>
       </div>
     </div>
@@ -159,108 +189,89 @@ function BookingRow({
 }
 
 export default function Profile() {
-  const { user, authLoaded, openAuth, logout } = useAuth();
+  const { user, openAuth, logout, setUserName } = useAuth();
   const router = useRouter();
   const [tab, setTab] = useState<Tab>('overview');
-  const [bookings, setBookings] = useState<Booking[]>([]);
+  const [bookings, setBookings] = useState<BookingView[]>([]);
   const [loaded, setLoaded] = useState(false);
+  const [offline, setOffline] = useState(false);
   const [profile, setProfile] = useState<UserProfile>({ name: '', address: '' });
   const [draft, setDraft] = useState<UserProfile>({ name: '', address: '' });
+  const [pickerOpen, setPickerOpen] = useState(false);
+  // Coordinates behind the typed address, so the profile stores a real point.
+  const [place, setPlace] = useState<PlaceSuggestion | null>(null);
+
+  // Seed the map from the location already chosen in the header.
+  useEffect(() => {
+    setPlace(loadLocation());
+  }, []);
   const [savedFlash, setSavedFlash] = useState(false);
 
-  useEffect(() => {
-    setBookings(loadBookings());
-    const stored = loadUserProfile();
-    setProfile(stored);
-    setDraft(stored);
-    setLoaded(true);
+  /**
+   * Bookings come from the API. Anything that was only ever saved locally
+   * (services the API doesn't carry, or checkouts placed while it was down) is
+   * appended so nothing silently disappears from the user's history.
+   */
+  const refreshBookings = useCallback(async () => {
+    const local = loadBookings();
+    const localViews = local.map(fromLocalBooking);
 
-    // Fetch live user profile and orders from backend if logged in
-    const token = typeof window !== 'undefined' ? localStorage.getItem('accessToken') : null;
-    if (token) {
-      // 1. Live profile
-      fetch('/api/v1/auth/me', {
-        headers: { Authorization: `Bearer ${token}` }
-      })
-        .then((res) => res.ok ? res.json() : null)
-        .then((data) => {
-          if (data && (data.name || data.address || data.phone)) {
-            const updatedName = data.name || stored.name || '';
-            const updatedAddress = data.address || stored.address || '';
-            const updated = {
-              name: updatedName,
-              address: updatedAddress
-            };
-            setProfile(updated);
-            setDraft(updated);
-            saveUserProfile(updated);
-            if (data.name) {
-              const currentAuth = loadAuthUser();
-              if (currentAuth) {
-                saveAuthUser({ ...currentAuth, name: data.name });
-              }
-            }
-          }
-        })
-        .catch(() => {});
-
-      // 2. Live database orders
-      fetch('/api/v1/orders?page=1&pageSize=50', {
-        headers: { Authorization: `Bearer ${token}` }
-      })
-        .then((res) => res.ok ? res.json() : null)
-        .then((data) => {
-          if (data && Array.isArray(data.items)) {
-            const mappedOrders: Booking[] = data.items.map((o: any) => ({
-              id: o.id.toString(),
-              total: o.grandTotal || 0,
-              payment: o.paymentType === 'cod' ? 'cod' : 'online',
-              paymentStatus: o.paymentStatus || 'unpaid',
-              deliveryStatus: o.deliveryStatus || 'pending',
-              trackingCode: o.trackingCode,
-              createdAt: o.createdAt || new Date().toISOString(),
-              items: [
-                {
-                  id: o.service?.id?.toString() || '1',
-                  serviceTitle: o.service?.name || 'Home Service',
-                  subName: o.trackingCode ? `Tracking: ${o.trackingCode}` : undefined,
-                  image: o.service?.bannerImage || o.service?.serviceIcon || '/service-banners/banner_cleaning.png',
-                  price: o.grandTotal || 0,
-                  date: o.serviceDate || o.createdAt?.split('T')[0] || new Date().toISOString().split('T')[0],
-                  time: o.time || '10:00 AM - 12:00 PM',
-                  qty: 1,
-                }
-              ]
-            }));
-            setBookings(mappedOrders);
-            saveBookings(mappedOrders);
-          } else {
-            setBookings([]);
-            saveBookings([]);
-          }
-        })
-        .catch(() => {});
+    try {
+      const result = await getOrders();
+      const placedCodes = new Set(
+        local.flatMap((b) => b.trackingCodes ?? []),
+      );
+      const apiViews = result.items.map(fromApiOrder);
+      // Drop the local mirror of anything the API already reports.
+      const localOnly = localViews.filter(
+        (view) => !view.reference || !placedCodes.has(view.reference),
+      );
+      setBookings([
+        ...apiViews,
+        ...localOnly.filter((view) => !view.reference),
+      ]);
+      setOffline(false);
+    } catch {
+      setBookings(localViews);
+      setOffline(true);
+    } finally {
+      setLoaded(true);
     }
+  }, []);
 
+  useEffect(() => {
+    const stored = loadUserProfile();
+    const resolvedName = stored.name || user?.name || '';
+    const initialProfile: UserProfile = {
+      name: resolvedName,
+      address: stored.address || '',
+    };
+    setProfile(initialProfile);
+    setDraft(initialProfile);
+    void refreshBookings();
     // Support deep links like /profile?tab=bookings.
     const t = new URLSearchParams(window.location.search).get('tab');
     if (t === 'overview' || t === 'bookings' || t === 'settings') {
       setTab(t);
     }
-  }, [user]);
+  }, [refreshBookings, user?.name]);
 
   const handleLogout = () => {
     logout();
-    if (typeof window !== 'undefined') {
-      window.location.href = '/';
-    } else {
-      router.push('/');
-    }
+    router.push('/');
   };
 
-  const handleDeleteBooking = (id: string) => {
-    removeBooking(id);
-    setBookings(loadBookings());
+  const handleDeleteBooking = async (booking: BookingView) => {
+    if (booking.local) {
+      removeBooking(booking.id);
+    } else {
+      try {
+        await cancelOrder(Number(booking.id.replace('api-', '')));
+      } catch {
+        // Surfaced by the row staying put after the refresh below.
+      }
+    }
+    await refreshBookings();
   };
 
   const handleSaveProfile = async () => {
@@ -268,44 +279,17 @@ export default function Profile() {
     saveUserProfile(next);
     setProfile(next);
     setDraft(next);
-    if (user) {
-      saveAuthUser({ ...user, name: next.name || undefined });
-    }
-
-    const token = typeof window !== 'undefined' ? localStorage.getItem('accessToken') : null;
-    if (token) {
+    if (next.name) {
+      setUserName(next.name);
       try {
-        const res = await fetch('/api/v1/auth/profile', {
-          method: 'PUT',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${token}`
-          },
-          body: JSON.stringify({ name: next.name, address: next.address })
-        });
-        const data = await res.json().catch(() => null);
-        if (data && data.name) {
-          saveUserProfile({ name: data.name, address: data.address || '' });
-          if (user) {
-            saveAuthUser({ ...user, name: data.name });
-          }
-        }
-      } catch (e) {
-        console.error('Failed to sync profile to server', e);
+        await updateName(next.name);
+      } catch (err) {
+        console.warn('Could not sync name to server:', err);
       }
     }
-
     setSavedFlash(true);
     window.setTimeout(() => setSavedFlash(false), 2000);
   };
-
-  if (!authLoaded) {
-    return (
-      <div className="mx-auto flex min-h-[400px] max-w-4xl items-center justify-center px-4 pb-20 pt-32 sm:px-6 lg:pt-36">
-        <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
-      </div>
-    );
-  }
 
   if (!user) {
     /* ---- Not signed in ---- */
@@ -344,13 +328,12 @@ export default function Profile() {
     );
   }
 
-  const isDemo = user?.phone === DEMO_PHONE;
-  const displayName = profile.name || user?.name || (user?.phone ? formatPhone(user.phone) : 'OneTap User');
-  const totalSpend = bookings.reduce((sum, b) => sum + (b?.total || 0), 0);
-  const totalServices = bookings.reduce(
-    (sum, b) => sum + (Array.isArray(b?.items) ? b.items.reduce((s, i) => s + (i?.qty || 1), 0) : 0),
-    0,
-  );
+  // Only label the bootstrap account when test credentials are enabled;
+  // a public deploy must not hint that this number is special.
+  const isMaster = SHOW_TEST_CREDENTIALS && user.phone === MASTER_PHONE;
+  const displayName = profile.name || user.name || 'OneTap User';
+  const totalSpend = bookings.reduce((sum, b) => sum + b.total, 0);
+  const totalServices = bookings.reduce((sum, b) => sum + b.serviceCount, 0);
 
   const navItems: {
     id: Tab;
@@ -381,17 +364,6 @@ export default function Profile() {
     },
   ];
 
-  const [paymentStatus, setPaymentStatus] = useState<string | null>(null);
-
-  useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const p = params.get('payment');
-    if (p) {
-      setPaymentStatus(p);
-      setTab('bookings');
-    }
-  }, []);
-
   return (
     <div className="mx-auto max-w-6xl px-4 pb-20 pt-28 sm:px-6 lg:pt-32">
       {/* Heading */}
@@ -403,26 +375,6 @@ export default function Profile() {
           Welcome back, {displayName} — manage your bookings and profile.
         </p>
       </div>
-
-      {paymentStatus === 'success' && (
-        <div className="mb-6 flex items-center gap-3 rounded-2xl border border-green-200 bg-green-50 p-4 text-green-800">
-          <CheckCircle2 className="h-6 w-6 text-green-600 shrink-0" />
-          <div>
-            <p className="font-bold">Payment Successful!</p>
-            <p className="text-xs text-green-700">Your online payment was verified and your service booking is confirmed.</p>
-          </div>
-        </div>
-      )}
-
-      {paymentStatus === 'failed' && (
-        <div className="mb-6 flex items-center gap-3 rounded-2xl border border-red-200 bg-red-50 p-4 text-red-800">
-          <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-red-100 font-bold text-red-600">✕</div>
-          <div>
-            <p className="font-bold">Payment Failed or Cancelled</p>
-            <p className="text-xs text-red-700">The online payment could not be completed. You can retry anytime.</p>
-          </div>
-        </div>
-      )}
 
       <div className="lg:grid lg:grid-cols-[260px_minmax(0,1fr)] lg:items-start lg:gap-6">
         {/* ---- Sidebar (desktop) ---- */}
@@ -439,7 +391,7 @@ export default function Profile() {
                     {displayName}
                   </p>
                   <p className="truncate text-xs text-muted-foreground">
-                    {formatPhone(user?.phone)}
+                    {formatPhone(user.phone)}
                   </p>
                 </div>
               </div>
@@ -538,7 +490,7 @@ export default function Profile() {
                 <div className="relative flex flex-wrap items-center justify-between gap-4">
                   <div>
                     <p className="text-sm text-white/75">
-                      {isDemo ? 'Demo account' : 'Welcome back'}
+                      {isMaster ? 'Master account' : 'Welcome back'}
                     </p>
                     <h2 className="mt-1 text-2xl font-extrabold">
                       Hi, {displayName} 👋
@@ -649,6 +601,13 @@ export default function Profile() {
                 </Link>
               </div>
 
+              {offline && loaded && (
+                <p className="mb-4 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs text-amber-800">
+                  Showing bookings saved on this device — the booking service
+                  could not be reached.
+                </p>
+              )}
+
               {bookings.length === 0 ? (
                 <div className="flex flex-col items-center gap-2 py-12 text-center">
                   <CalendarDays size={36} className="text-muted-foreground" />
@@ -720,6 +679,23 @@ export default function Profile() {
                       placeholder="House, Road, Area, City"
                       className="h-10"
                     />
+                    <button
+                      type="button"
+                      onClick={() => setPickerOpen(true)}
+                      className="mt-2 inline-flex items-center gap-1.5 rounded-full border border-primary/30 bg-primary/5 px-3 py-1.5 text-xs font-semibold text-primary transition-colors hover:bg-primary/10"
+                    >
+                      <MapPin size={13} /> Pick on map
+                    </button>
+                    {place && (
+                      <div className="mt-2">
+                        <MapPreview
+                          lat={place.lat}
+                          lng={place.lng}
+                          label={draft.address || place.address}
+                          height={130}
+                        />
+                      </div>
+                    )}
                   </div>
                   <div className="flex items-center gap-3 pt-1">
                     <Button
@@ -745,11 +721,17 @@ export default function Profile() {
                 </h3>
                 <div className="space-y-3">
                   <p className="flex items-center gap-3 rounded-2xl bg-muted/40 px-4 py-3 text-sm">
+                    <UserRound size={16} className="shrink-0 text-primary" />
+                    <span className="font-semibold text-foreground">
+                      {draft.name || profile.name || user.name || 'No name set yet'}
+                    </span>
+                  </p>
+                  <p className="flex items-center gap-3 rounded-2xl bg-muted/40 px-4 py-3 text-sm">
                     <Phone size={16} className="shrink-0 text-primary" />
                     <span className="font-semibold text-foreground">
-                      {formatPhone(user?.phone)}
+                      {formatPhone(user.phone)}
                     </span>
-                    {isDemo && (
+                    {isMaster && (
                       <span className="ml-auto rounded-full bg-primary/10 px-2.5 py-0.5 text-xs font-bold text-primary">
                         Demo
                       </span>
@@ -758,28 +740,28 @@ export default function Profile() {
                   <p className="flex items-start gap-3 rounded-2xl bg-muted/40 px-4 py-3 text-sm text-muted-foreground">
                     <MapPin size={16} className="mt-0.5 shrink-0 text-primary" />
                     <span className="min-w-0">
-                      {profile.address || 'No address added yet'}
+                      {draft.address || profile.address || 'No address added yet'}
                     </span>
                   </p>
                 </div>
               </div>
 
               {/* Demo hint */}
-              {isDemo && (
+              {isMaster && (
                 <div className="flex items-start gap-3 rounded-2xl border border-primary/20 bg-primary/5 p-4 text-sm">
                   <Image
-                    src="/illustration_mobile_no.svg"
+                    src={asset('/illustration_mobile_no.svg')}
                     alt=""
                     width={48}
                     height={48}
                     className="h-10 w-auto shrink-0"
                   />
                   <div>
-                    <p className="font-bold text-foreground">Demo account</p>
+                    <p className="font-bold text-foreground">Master account</p>
                     <p className="mt-0.5 text-muted-foreground">
-                      You're signed in with the default test number{' '}
+                      You're signed in with the bootstrap test number{' '}
                       <span className="font-semibold text-primary">
-                        {DEMO_PHONE}
+                        {MASTER_PHONE}
                       </span>
                       . Log out to try the login flow again.
                     </p>
@@ -800,6 +782,19 @@ export default function Profile() {
           )}
         </section>
       </div>
+
+      <LocationPicker
+        open={pickerOpen}
+        onClose={() => setPickerOpen(false)}
+        initial={place}
+        title="Set your address"
+        onSelect={(next) => {
+          setPlace(next);
+          // Keep the header in sync so the cart and checkout agree.
+          saveLocation(next);
+          setDraft((d) => ({ ...d, address: next.address }));
+        }}
+      />
     </div>
   );
 }

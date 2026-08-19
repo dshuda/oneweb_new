@@ -2,51 +2,24 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { FiChevronLeft, FiChevronRight, FiPlus } from 'react-icons/fi';
-import Image from 'next/image';
 import Link from 'next/link';
-import { resolveImageUrl } from '@/lib/utils';
-import { serviceCategories as fallbackCategories } from '@/app/data/services';
-import { api } from '@/lib/api';
-
-type ServiceCategory = {
-  id: string;
-  name: string;
-  sub: string;
-  slug: string;
-  icon: any;
-};
+import CategoryIcon from './CategoryIcon';
+import { fetchCategories, type CatalogCategory } from '@/app/lib/catalog';
 
 export default function ServiceCategories() {
-  const [categories, setCategories] = useState<ServiceCategory[]>(fallbackCategories);
   const scrollRef = useRef<HTMLDivElement>(null);
   const [canScrollLeft, setCanScrollLeft] = useState(false);
   const [canScrollRight, setCanScrollRight] = useState(true);
+  const [categories, setCategories] = useState<CatalogCategory[]>([]);
 
+  // Categories come from the API so the storefront always reflects what is
+  // actually bookable.
   useEffect(() => {
-    const fetchCategories = async () => {
-      try {
-        const res = await api.get('/api/v1/services/categories');
-        const data = res.data;
-        if (Array.isArray(data) && data.length > 0) {
-          const mapped: ServiceCategory[] = data.map((cat: any) => {
-            const nameParts = (cat.name || '').split(' ');
-            const firstName = nameParts[0] || cat.name;
-            const subName = nameParts.slice(1).join(' ') || 'Service';
-            return {
-              id: cat.id,
-              name: firstName,
-              sub: subName,
-              slug: cat.slug || firstName.toLowerCase(),
-              icon: resolveImageUrl(cat.serviceIcon || cat.bannerImage, '/service-icons/icon_cleaning.svg'),
-            };
-          });
-          setCategories(mapped);
-        }
-      } catch (err) {
-        console.error('Failed to fetch categories:', err);
-      }
-    };
-    fetchCategories();
+    const controller = new AbortController();
+    fetchCategories(controller.signal)
+      .then(setCategories)
+      .catch(() => setCategories([]));
+    return () => controller.abort();
   }, []);
 
   const scroll = (direction: 'left' | 'right') => {
@@ -86,29 +59,17 @@ export default function ServiceCategories() {
               onScroll={handleScroll}
               className="scrollbar-hide flex gap-3 overflow-x-auto pb-1 sm:gap-4"
             >
-              {serviceCategories.map((category) => (
+              {categories.map((category) => (
                 <Link
                   key={category.id}
                   href={`/category/${category.slug}`}
                   className="group flex w-[104px] shrink-0 flex-col items-center gap-2.5 rounded-2xl py-4 transition-transform hover:-translate-y-0.5 sm:w-[110px]"
                 >
                   <span className="flex h-14 w-14 items-center justify-center rounded-2xl border border-primary/25 bg-primary/5 text-primary transition-colors group-hover:border-primary/40 group-hover:bg-primary/10">
-                    {typeof category.icon === 'string' ? (
-                      <Image
-                        src={category.icon}
-                        alt={category.name}
-                        width={42}
-                        height={42}
-                        className="h-8 w-8"
-                      />
-                    ) : (
-                      <category.icon size={26} strokeWidth={1.8} />
-                    )}
+                    <CategoryIcon icon={category.icon} name={category.name} />
                   </span>
                   <span className="text-center text-xs font-semibold leading-snug text-foreground sm:text-[13px]">
                     {category.name}
-                    <br />
-                    {category.sub}
                   </span>
                 </Link>
               ))}

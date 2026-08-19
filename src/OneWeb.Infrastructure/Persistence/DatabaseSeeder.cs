@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using OneWeb.Domain.Auth;
 using OneWeb.Domain.Entities;
 using BCrypt.Net;
 
@@ -6,15 +7,30 @@ namespace OneWeb.Infrastructure.Persistence;
 
 public static class DatabaseSeeder
 {
-    public static async Task SeedAsync(AppDbContext db)
+    public static async Task SeedAsync(
+        AppDbContext db,
+        MasterAuthOptions? master = null,
+        string? catalogPath = null,
+        Action<string>? log = null)
     {
         await SeedAdminUser(db);
+        await SeedMasterCustomer(db, master ?? new MasterAuthOptions());
+        await SeedPortalAdmin(db);
         await SeedBusinessSettings(db);
         await SeedDivisions(db);
         await SeedDistricts(db);
         
-        // Use realistic dummy data
+        // Both catalogues are seeded so the storefront carries the union of them:
+        // first the original backend tree (AC Servicing, Car Care, …), then the
+        // design catalogue exported from the website (Cleaning, Shifting, …).
+        // Slugs don't overlap, and CatalogSeeder upserts, so this is idempotent.
         await SeedServiceCategories(db);
+
+        if (!string.IsNullOrWhiteSpace(catalogPath) && File.Exists(catalogPath))
+            await CatalogSeeder.SeedAsync(db, catalogPath!, log);
+
+        await SeedLanguages(db);
+        await SeedCustomPages(db);
         await SeedBlogCategories(db);
         await SeedBlogs(db);
         await SeedCoupons(db);
@@ -47,6 +63,78 @@ public static class DatabaseSeeder
         if (!await db.Users.AnyAsync(u => u.Email == "testadmin@oneweb.com"))
             db.Users.Add(new User { Name = "Test Admin", Email = "testadmin@oneweb.com", Password = BCrypt.Net.BCrypt.HashPassword("Admin123!"), UserType = "admin", Status = true, IsApproved = true, CreatedAt = DateTime.UtcNow, UpdatedAt = DateTime.UtcNow });
             
+        await db.SaveChangesAsync();
+    }
+
+    /// <summary>
+    /// Bootstrap customer used to sign into the website with the master phone /
+    /// OTP pair while no SMS gateway is wired up. Idempotent: only fills in the
+    /// gaps if the account already exists.
+    /// </summary>
+    private static async Task SeedMasterCustomer(AppDbContext db, MasterAuthOptions master)
+    {
+        if (!master.Enabled || string.IsNullOrWhiteSpace(master.Phone))
+            return;
+
+        var user = await db.Users.FirstOrDefaultAsync(u => u.Phone == master.Phone);
+
+        if (user == null)
+        {
+            db.Users.Add(new User
+            {
+                Name = master.Name,
+                Phone = master.Phone,
+                CountryCode = "+880",
+                UserType = "customer",
+                Status = true,
+                IsApproved = true,
+                CreatedAt = DateTime.UtcNow,
+                UpdatedAt = DateTime.UtcNow
+            });
+        }
+        else
+        {
+            // Keep the account usable even if it was created by an earlier login.
+            if (string.IsNullOrWhiteSpace(user.Name)) user.Name = master.Name;
+            user.Status = true;
+            user.IsApproved = true;
+            user.IsBanned = false;
+            user.UpdatedAt = DateTime.UtcNow;
+            db.Users.Update(user);
+        }
+
+        await db.SaveChangesAsync();
+    }
+
+    /// <summary>
+    /// Bootstrap portal administrator. Idempotent: refreshes the password and
+    /// re-enables the account on every start so a lockout is always recoverable.
+    /// </summary>
+    private static async Task SeedPortalAdmin(AppDbContext db)
+    {
+        const string phone = "01347201751";
+        const string email = "faruk.hannan@onetapservice.com";
+        const string password = "OnetapService@2026";
+
+        var admin = await db.Users.FirstOrDefaultAsync(u => u.Phone == phone || u.Email == email);
+
+        if (admin == null)
+        {
+            admin = new User { CreatedAt = DateTime.UtcNow };
+            db.Users.Add(admin);
+        }
+
+        admin.Name = "Faruk Hannan";
+        admin.Email = email;
+        admin.Phone = phone;
+        admin.CountryCode = "+880";
+        admin.UserType = "admin";
+        admin.Password = BCrypt.Net.BCrypt.HashPassword(password);
+        admin.Status = true;
+        admin.IsApproved = true;
+        admin.IsBanned = false;
+        admin.UpdatedAt = DateTime.UtcNow;
+
         await db.SaveChangesAsync();
     }
 
@@ -114,12 +202,12 @@ public static class DatabaseSeeder
 
         var categories = new List<Service>
         {
-            new() { ParentId = null, Name = "AC Servicing", Slug = "ac-servicing", Level = 0, Status = true, InitialPrice = 0, ServiceIcon = "http://localhost:5102/cdn/web/service-icons/icon_ac_repair.svg", BannerImage = "http://localhost:5102/cdn/web/banner_appliance_repair.png", CreatedAt = DateTime.UtcNow },
-            new() { ParentId = null, Name = "Plumbing & Water", Slug = "plumbing-water",  Level = 0, Status = true, InitialPrice = 0, ServiceIcon = "http://localhost:5102/cdn/web/service-icons/icon_plumbing.svg", BannerImage = "http://localhost:5102/cdn/web/service-banners/banner_painting.png", CreatedAt = DateTime.UtcNow },
-            new() { ParentId = null, Name = "Electrical Repairs", Slug = "electrical-repairs",  Level = 0, Status = true, InitialPrice = 0, ServiceIcon = "http://localhost:5102/cdn/web/service-icons/icon_electronics.svg", BannerImage = "http://localhost:5102/cdn/web/service-banners/banner_electrical_checkup.png", CreatedAt = DateTime.UtcNow },
-            new() { ParentId = null, Name = "Deep Cleaning", Slug = "deep-cleaning",  Level = 0, Status = true, InitialPrice = 0, ServiceIcon = "http://localhost:5102/cdn/web/service-icons/icon_cleaning.svg", BannerImage = "http://localhost:5102/cdn/web/service-banners/banner_cleaning.png", CreatedAt = DateTime.UtcNow },
-            new() { ParentId = null, Name = "Home Shifting", Slug = "home-shifting",  Level = 0, Status = true, InitialPrice = 0, ServiceIcon = "http://localhost:5102/cdn/web/service-icons/icon_shifting.svg", BannerImage = "http://localhost:5102/cdn/web/banner_hero.png", CreatedAt = DateTime.UtcNow },
-            new() { ParentId = null, Name = "Car Care", Slug = "car-care", Level = 0, Status = true, InitialPrice = 0, ServiceIcon = "http://localhost:5102/cdn/web/service-icons/icon_car_servicing.svg", BannerImage = "http://localhost:5102/cdn/web/banner_hero.png", CreatedAt = DateTime.UtcNow },
+            new() { ParentId = null, Name = "AC Servicing", Slug = "ac-servicing", Level = 0, Status = true, InitialPrice = 0, ServiceIcon = "wind", CreatedAt = DateTime.UtcNow },
+            new() { ParentId = null, Name = "Plumbing & Water", Slug = "plumbing-water",  Level = 0, Status = true, InitialPrice = 0, ServiceIcon = "droplets", CreatedAt = DateTime.UtcNow },
+            new() { ParentId = null, Name = "Electrical Repairs", Slug = "electrical-repairs",  Level = 0, Status = true, InitialPrice = 0, ServiceIcon = "zap", CreatedAt = DateTime.UtcNow },
+            new() { ParentId = null, Name = "Deep Cleaning", Slug = "deep-cleaning",  Level = 0, Status = true, InitialPrice = 0, ServiceIcon = "sparkles", CreatedAt = DateTime.UtcNow },
+            new() { ParentId = null, Name = "Home Shifting", Slug = "home-shifting",  Level = 0, Status = true, InitialPrice = 0, ServiceIcon = "truck", CreatedAt = DateTime.UtcNow },
+            new() { ParentId = null, Name = "Car Care", Slug = "car-care", Level = 0, Status = true, InitialPrice = 0, ServiceIcon = "car", CreatedAt = DateTime.UtcNow },
         };
 
         db.Services.AddRange(categories);
@@ -211,6 +299,43 @@ public static class DatabaseSeeder
         await db.SaveChangesAsync();
     }
 
+    private static async Task SeedLanguages(AppDbContext db)
+    {
+        if (await db.Languages.AnyAsync()) return;
+
+        db.Languages.AddRange(
+            new Language { Code = "en", Name = "English", NativeName = "English", IsDefault = true, Status = true, CreatedAt = DateTime.UtcNow, UpdatedAt = DateTime.UtcNow },
+            new Language { Code = "bn", Name = "Bengali", NativeName = "বাংলা", IsDefault = false, Status = true, CreatedAt = DateTime.UtcNow, UpdatedAt = DateTime.UtcNow });
+
+        await db.SaveChangesAsync();
+    }
+
+    private static async Task SeedCustomPages(AppDbContext db)
+    {
+        // Upsert by Link so an existing page's edited copy is never overwritten.
+        var pages = new List<CustomPage>
+        {
+            new() { Title = "About Us", Slug = "about", Link = "about", Type = "web", Status = true,
+                Content = "<p>OneTap Service connects you with verified professionals for home services across Dhaka.</p>" },
+            new() { Title = "Privacy Policy", Slug = "privacy", Link = "privacy", Type = "web", Status = true,
+                Content = "<p>We collect only the information needed to deliver and support your bookings.</p>" },
+            new() { Title = "Terms & Conditions", Slug = "terms", Link = "terms", Type = "web", Status = true,
+                Content = "<p>By booking a service you agree to these terms.</p>" },
+            new() { Title = "Contact Us", Slug = "contact", Link = "contact", Type = "web", Status = true,
+                Content = "<p>Reach our support team any day between 9am and 9pm.</p>" },
+        };
+
+        foreach (var page in pages)
+        {
+            if (await db.CustomPages.AnyAsync(p => p.Link == page.Link)) continue;
+            page.CreatedAt = DateTime.UtcNow;
+            page.UpdatedAt = DateTime.UtcNow;
+            db.CustomPages.Add(page);
+        }
+
+        await db.SaveChangesAsync();
+    }
+
     private static async Task SeedBlogCategories(AppDbContext db)
     {
         if (await db.BlogCategories.AnyAsync()) return;
@@ -233,11 +358,11 @@ public static class DatabaseSeeder
 
         var blogs = new List<Blog>
         {
-            new() { Title = "Top 5 AC Maintenance Tips for Summer", Slug = "ac-maintenance-tips", Image = "http://localhost:5102/cdn/web/banner_appliance_repair.png", CategoryId = cats[0].Id, Status = true, CreatedAt = DateTime.UtcNow.AddDays(-10), Content = "Summer is here, meaning your AC will run non-stop. Here are 5 tips to keep it healthy." },
-            new() { Title = "Why Deep Cleaning is Essential Every 6 Months", Slug = "deep-cleaning-essential", Image = "http://localhost:5102/cdn/web/service-banners/banner_cleaning.png", CategoryId = cats[2].Id, Status = true, CreatedAt = DateTime.UtcNow.AddDays(-15), Content = "A clean home is a healthy home. Learn why deep cleaning is crucial for your family's health." },
-            new() { Title = "Signs Your Home Electrical System Needs an Upgrade", Slug = "electrical-system-upgrade", Image = "http://localhost:5102/cdn/web/service-banners/banner_electrical_checkup.png", CategoryId = cats[3].Id, Status = true, CreatedAt = DateTime.UtcNow.AddDays(-20), Content = "Flickering lights? Tripping breakers? It might be time to call a professional electrician." },
-            new() { Title = "DIY Plumbing Fixes You Should Know", Slug = "diy-plumbing-fixes", Image = "http://localhost:5102/cdn/web/service-banners/banner_painting.png", CategoryId = cats[1].Id, Status = true, CreatedAt = DateTime.UtcNow.AddDays(-5), Content = "Save money by learning these simple DIY plumbing fixes for common household leaks." },
-            new() { Title = "The Ultimate Guide to Moving Homes", Slug = "moving-homes-guide", Image = "http://localhost:5102/cdn/web/banner_hero.png", CategoryId = cats[1].Id, Status = true, CreatedAt = DateTime.UtcNow.AddDays(-2), Content = "Moving can be stressful. Follow our ultimate guide to make your shifting process smooth." },
+            new() { Title = "Top 5 AC Maintenance Tips for Summer", Slug = "ac-maintenance-tips", CategoryId = cats[0].Id, Status = true, CreatedAt = DateTime.UtcNow.AddDays(-10), Content = "Summer is here, meaning your AC will run non-stop. Here are 5 tips to keep it healthy." },
+            new() { Title = "Why Deep Cleaning is Essential Every 6 Months", Slug = "deep-cleaning-essential", CategoryId = cats[2].Id, Status = true, CreatedAt = DateTime.UtcNow.AddDays(-15), Content = "A clean home is a healthy home. Learn why deep cleaning is crucial for your family's health." },
+            new() { Title = "Signs Your Home Electrical System Needs an Upgrade", Slug = "electrical-system-upgrade", CategoryId = cats[3].Id, Status = true, CreatedAt = DateTime.UtcNow.AddDays(-20), Content = "Flickering lights? Tripping breakers? It might be time to call a professional electrician." },
+            new() { Title = "DIY Plumbing Fixes You Should Know", Slug = "diy-plumbing-fixes", CategoryId = cats[1].Id, Status = true, CreatedAt = DateTime.UtcNow.AddDays(-5), Content = "Save money by learning these simple DIY plumbing fixes for common household leaks." },
+            new() { Title = "The Ultimate Guide to Moving Homes", Slug = "moving-homes-guide", CategoryId = cats[1].Id, Status = true, CreatedAt = DateTime.UtcNow.AddDays(-2), Content = "Moving can be stressful. Follow our ultimate guide to make your shifting process smooth." },
         };
 
         db.Blogs.AddRange(blogs);
@@ -259,12 +384,24 @@ public static class DatabaseSeeder
 
     private static async Task SeedSliders(AppDbContext db)
     {
+        // Repair rows seeded before images were CDN URLs: a bare filename like
+        // "slider-ac.jpg" resolves to nothing and renders as a broken image.
+        var legacy = await db.Sliders
+            .Where(s => s.Image != null && s.Image != "" && !s.Image.StartsWith("http") && !s.Image.StartsWith("/"))
+            .ToListAsync();
+        if (legacy.Count > 0)
+        {
+            foreach (var slider in legacy)
+                slider.Image = "https://lcst.sgp1.cdn.digitaloceanspaces.com/Onetap/web/service-banners/banner_cleaning.png";
+            await db.SaveChangesAsync();
+        }
+
         if (await db.Sliders.AnyAsync()) return;
         var sliders = new List<Slider>
         {
-            new() { Title = "Summer Cooling Deals", SubTitle = "Up to 20% off on AC Servicing", Image = "http://localhost:5102/cdn/web/banner_hero.png", Link = "/services/ac-servicing", Status = true, Position = 1, CreatedAt = DateTime.UtcNow },
-            new() { Title = "Revitalize Your Home", SubTitle = "Professional Deep Cleaning Services", Image = "http://localhost:5102/cdn/web/service-banners/banner_cleaning.png", Link = "/services/deep-cleaning", Status = true, Position = 2, CreatedAt = DateTime.UtcNow },
-            new() { Title = "Expert Electricians at Your Door", SubTitle = "Safe & Reliable Repairs", Image = "http://localhost:5102/cdn/web/service-banners/banner_electrical_checkup.png", Link = "/services/electrical-repairs", Status = true, Position = 3, CreatedAt = DateTime.UtcNow },
+            new() { Title = "Summer Cooling Deals", SubTitle = "Up to 20% off on AC Servicing", Image = "https://lcst.sgp1.cdn.digitaloceanspaces.com/Onetap/web/service-banners/banner_electrical_checkup.png", Link = "/services/ac-servicing", Status = true, Position = 1, CreatedAt = DateTime.UtcNow },
+            new() { Title = "Revitalize Your Home", SubTitle = "Professional Deep Cleaning Services", Image = "https://lcst.sgp1.cdn.digitaloceanspaces.com/Onetap/web/service-banners/banner_cleaning.png", Link = "/services/deep-cleaning", Status = true, Position = 2, CreatedAt = DateTime.UtcNow },
+            new() { Title = "Expert Electricians at Your Door", SubTitle = "Safe & Reliable Repairs", Image = "https://lcst.sgp1.cdn.digitaloceanspaces.com/Onetap/web/service-banners/banner_painting.png", Link = "/services/electrical-repairs", Status = true, Position = 3, CreatedAt = DateTime.UtcNow },
         };
         db.Sliders.AddRange(sliders);
         await db.SaveChangesAsync();

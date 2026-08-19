@@ -1,19 +1,25 @@
 namespace OneWeb.Application.Features.Services.DTOs;
 
 public record ServiceDto(
-    long Id, 
-    string Name, 
+    long Id,
+    string Name,
     string? Slug,
-    long? ParentId, 
+    long? ParentId,
     int Level,
-    string? ServiceIcon, 
+    string? ServiceIcon,
     string? BannerImage,
-    double InitialPrice, 
+    double InitialPrice,
     bool IsTrending,
-    bool Status,
+        bool Status,
+    List<ServiceDto>? Children = null,
+    // Presentation fields the storefront renders directly.
+    string? PriceUnit = null,
+    double? Rating = null,
+    int? ReviewCount = null,
     string? HeroTitle = null,
     string? HeroSubtitle = null,
-    List<ServiceDto>? Children = null
+    // Bookable packages, so a service card can add to cart without a second call.
+    List<ServicePriceDto>? Prices = null
 );
 public record ServiceAdminDto(
     long Id, 

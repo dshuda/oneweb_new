@@ -17,46 +17,56 @@ public class GetCategoriesQueryHandler : IRequestHandler<GetCategoriesQuery, Lis
 
     public async Task<List<ServiceDto>> Handle(GetCategoriesQuery request, CancellationToken cancellationToken)
     {
-        // Load all services to properly populate multi-level tree (Category -> SubCategory -> Services)
-        var allServices = await _dbContext.Services
-            .Include(s => s.Prices)
-            .Where(s => request.IncludeInactive || s.Status)
-            .OrderBy(s => s.Id)
-            .ThenBy(s => s.Name)
-            .ToListAsync(cancellationToken);
-
-        var lookup = allServices.ToLookup(s => s.ParentId);
-
-        ServiceDto BuildTree(OneWeb.Domain.Entities.Service service)
+        // Get from DB: categories (Level=0)
+        var query = _dbContext.Services.Include(f=>f.Children)
+            .Where(s => s.Level == 0);
+        
+        if (!request.IncludeInactive)
         {
-            var children = lookup[service.Id]
-                .Select(BuildTree)
-                .ToList();
-
-            return new ServiceDto(
-                service.Id,
-                service.Name,
-                service.Slug,
-                service.ParentId,
-                service.Level,
-                service.ServiceIcon,
-                service.BannerImage,
-                service.InitialPrice,
-                service.IsTrending,
-                service.Status,
-                service.MetaTitle,
-                service.MetaDescription,
-                children.Count > 0 ? children : null
-            );
+            query = query.Where(s => s.Status);
         }
 
-        var rootCategories = allServices
-            .Where(s => s.Level == 0 || s.ParentId == null || s.ParentId == 0)
+        var categories = await query
             .OrderByDescending(s => s.IsTrending)
             .ThenBy(s => s.Name)
-            .Select(BuildTree)
-            .ToList();
-
-        return rootCategories;
+            .ToListAsync(cancellationToken);
+        
+        // Manually load children for each category
+        //foreach (var category in categories)
+        //{
+        //    await _dbContext.Entry(category)
+        //        .Collection(c => c.Children)
+        //        .LoadAsync(cancellationToken);
+        //}
+        
+        return categories.Select(c => MapToDto(c, request.IncludeInactive)).ToList();
+    }
+    
+    private ServiceDto MapToDto(OneWeb.Domain.Entities.Service service, bool includeInactive)
+    {
+        return new ServiceDto(
+            service.Id,
+            service.Name,
+            service.Slug,
+            service.ParentId,
+            service.Level,
+            service.ServiceIcon,
+            service.BannerImage,
+            service.InitialPrice,
+            service.IsTrending,
+            service.Status,
+            service.Children?
+                .Where(c => includeInactive || c.Status)
+                // Ordered by id so the storefront's sub-category tabs keep the
+                // order they were authored in, rather than whatever the DB returns.
+                .OrderBy(c => c.Id)
+                .Select(c => MapToDto(c, includeInactive))
+                .ToList(),
+            service.PriceUnit,
+            service.Rating,
+            service.ReviewCount,
+            service.HeroTitle,
+            service.HeroSubtitle
+        );
     }
 }
