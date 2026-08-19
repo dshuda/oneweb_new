@@ -32,7 +32,7 @@ export default function AdminLoginPage() {
         setAdminTokens(accessToken, refreshToken, userId, userType);
         
         // Full navigation ensures middleware receives the fresh cookies immediately
-        window.location.href = '/admin';
+        window.location.href = appPath('/admin');
       } else {
         setError(response.data.message || 'Login failed');
       }
