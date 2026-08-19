@@ -52,7 +52,8 @@ module.exports = {
       args: 'run start -- -p 3001',
       env: {
         NODE_ENV: 'production',
-        PORT: '3001'
+        PORT: '3001',
+        NEXT_BASE_PATH: ''
       }
     },
     {
@@ -62,7 +63,8 @@ module.exports = {
       args: 'run start -- -p 3002',
       env: {
         NODE_ENV: 'production',
-        PORT: '3002'
+        PORT: '3002',
+        NEXT_BASE_PATH: '/portal'
       }
     }
   ]
