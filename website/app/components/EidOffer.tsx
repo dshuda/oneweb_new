@@ -1,13 +1,13 @@
-'use client';
+"use client";
 
-import { useEffect, useState } from 'react';
-import Image from 'next/image';
-import Link from 'next/link';
-import ServiceCard from './ServiceCard';
-import { Badge } from '@/components/ui/badge';
-import { fetchTrendingServices, type CatalogService } from '@/app/lib/catalog';
-import { getSliders, type ApiSlider } from '@/app/lib/api';
-import { asset } from '@/app/lib/assets';
+import { getSliders, type ApiSlider } from "@/app/lib/api";
+import { asset } from "@/app/lib/assets";
+import { fetchTrendingServices, type CatalogService } from "@/app/lib/catalog";
+import { Badge } from "@/components/ui/badge";
+import Image from "next/image";
+import Link from "next/link";
+import { useEffect, useState } from "react";
+import ServiceCard from "./ServiceCard";
 
 // 11d : 0h : 36m : 09s
 const TARGET_SECONDS = 11 * 24 * 3600 + 36 * 60 + 9;
@@ -61,15 +61,20 @@ export default function EidOffer() {
         {/* Header */}
         <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
           <div>
-            <h2 className="text-2xl font-bold text-foreground sm:text-3xl">Eid-Al-Adha Offer</h2>
+            <h2 className="text-2xl font-bold text-foreground sm:text-3xl">
+              Latest Offer
+            </h2>
             <p className="mt-1 text-sm text-muted-foreground">
               Enjoy limited-time offer on this holy festival.
             </p>
           </div>
           <div className="flex flex-col items-start gap-1.5 sm:items-end">
-            <span className="text-xs font-medium text-muted-foreground">Offer ends in</span>
+            <span className="text-xs font-medium text-muted-foreground">
+              Offer ends in
+            </span>
             <Badge className="h-auto rounded-full bg-primary px-4 py-2 text-sm font-bold text-white tabular-nums shadow-md shadow-primary/30 hover:bg-primary">
-              {timeLeft.d}d : {pad(timeLeft.h)}h : {pad(timeLeft.m)}m : {pad(timeLeft.s)}s
+              {timeLeft.d}d : {pad(timeLeft.h)}h : {pad(timeLeft.m)}m :{" "}
+              {pad(timeLeft.s)}s
             </Badge>
           </div>
         </div>
@@ -81,17 +86,21 @@ export default function EidOffer() {
               const card = (
                 <div className="relative h-44 w-[320px] shrink-0 overflow-hidden rounded-2xl bg-gray-200 sm:w-[420px]">
                   <Image
-                    src={asset(slide.image ?? '')}
-                    alt={slide.title ?? 'Offer'}
+                    src={asset(slide.image ?? "")}
+                    alt={slide.title ?? "Offer"}
                     fill
                     sizes="420px"
                     className="object-cover"
                   />
                   <div className="absolute inset-0 bg-gradient-to-r from-black/70 via-black/30 to-transparent" />
                   <div className="absolute inset-0 flex flex-col justify-end p-5 text-white">
-                    <p className="text-lg font-bold leading-tight">{slide.title}</p>
+                    <p className="text-lg font-bold leading-tight">
+                      {slide.title}
+                    </p>
                     {slide.subTitle && (
-                      <p className="mt-1 text-sm text-white/85">{slide.subTitle}</p>
+                      <p className="mt-1 text-sm text-white/85">
+                        {slide.subTitle}
+                      </p>
                     )}
                   </div>
                 </div>

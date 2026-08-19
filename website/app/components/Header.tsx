@@ -1,20 +1,21 @@
 "use client";
 
+import { asset } from "@/app/lib/assets";
 import { Button } from "@/components/ui/button";
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { FiMenu, FiX } from "react-icons/fi";
-import { useCart } from "./CartProvider";
 import { useAuth } from "./AuthProvider";
-import { asset } from '@/app/lib/assets';
+import { useCart } from "./CartProvider";
 
 const navItems = [
   { label: "Home", href: "/" },
   { label: "Services", href: "/services" },
-  { label: "Blog", href: "/blog" },
   { label: "About", href: "/about" },
+  { label: "Blogs", href: "/blog" },
+  { label: "FAQ", href: "/faq" },
   { label: "Contact Us", href: "/contact-us" },
 ];
 
@@ -64,7 +65,7 @@ export default function Header() {
           {/* Logo */}
           <Link href="/" className="flex items-center gap-2.5">
             <Image
-              src={asset('/logo_onetap.svg')}
+              src={asset("/logo_onetap.svg")}
               alt=""
               width={69}
               height={40}
@@ -80,9 +81,7 @@ export default function Header() {
                 key={item.href}
                 href={item.href}
                 className={`text-sm font-semibold transition-colors hover:text-primary ${
-                  isActive(item.href)
-                    ? "text-primary"
-                    : "text-foreground/70"
+                  isActive(item.href) ? "text-primary" : "text-foreground/70"
                 }`}
               >
                 {item.label}
@@ -100,7 +99,7 @@ export default function Header() {
               className="relative rounded-full hover:bg-primary/10 hover:text-primary"
             >
               <Image
-                src={asset('/icons/cart.svg')}
+                src={asset("/icons/cart.svg")}
                 alt=""
                 width={20}
                 height={20}
@@ -130,7 +129,7 @@ export default function Header() {
               }`}
             >
               <Image
-                src={asset('/icons/circle-user.svg')}
+                src={asset("/icons/circle-user.svg")}
                 alt=""
                 width={24}
                 height={24}
