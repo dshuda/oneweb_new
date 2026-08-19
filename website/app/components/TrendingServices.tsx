@@ -28,7 +28,7 @@ export default function TrendingServices() {
             </p>
           </div>
           <Link
-            href="#"
+            href="/services"
             className="shrink-0 text-sm font-semibold text-primary transition-colors hover:text-primary/80"
           >
             View All →
