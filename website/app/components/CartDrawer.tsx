@@ -318,7 +318,7 @@ export default function CartDrawer({
           <div className="flex flex-col items-center gap-3 px-6 py-16 text-center">
             <FiCheckCircle size={48} className="text-primary" />
             <DrawerTitle className="text-xl font-bold text-foreground">
-              Payment Successful!
+              Order Confirmed!
             </DrawerTitle>
             <DrawerDescription className="max-w-xs">
               {paidCount} {paidCount === 1 ? 'service' : 'services'} booked · ৳
